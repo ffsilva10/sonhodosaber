@@ -193,10 +193,11 @@ input,textarea,select{font-family:inherit;font-size:14px}
   </div>
 
   <div class="main">
-    <div class="nav-tabs" style="max-width:600px">
+    <div class="nav-tabs" style="max-width:720px">
       <button class="nav-tab active" data-page="inicio" onclick="irPagina('inicio')">🏠 Início</button>
       <button class="nav-tab" data-page="pacientes" onclick="irPagina('pacientes')">🧒 Pacientes</button>
       <button class="nav-tab" data-page="agenda" onclick="irPagina('agenda')">📅 Agenda</button>
+      <button class="nav-tab" data-page="equipe" onclick="irPagina('equipe')">👥 Equipe</button>
       <button class="nav-tab" data-page="financeiro" onclick="irPagina('financeiro')">💰 Financeiro</button>
     </div>
 
@@ -260,6 +261,16 @@ input,textarea,select{font-family:inherit;font-size:14px}
 
       <!-- Grid semanal Seg-Sex -->
       <div id="agendaGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px"></div>
+    </div>
+
+    <!-- EQUIPE -->
+    <div class="page" id="page-equipe">
+      <div class="section-head">
+        <h2>Equipe</h2>
+        <button class="btn-add" onclick="abrirModalProfissional()">+ Novo profissional</button>
+      </div>
+      <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:16px">Quanto pagar pra cada profissional, baseado no combinado por atendimento e no que foi realizado este mês.</div>
+      <div class="card-list" id="equipeList"><div class="empty">Carregando...</div></div>
     </div>
 
     <!-- PACIENTES -->
@@ -339,6 +350,21 @@ input,textarea,select{font-family:inherit;font-size:14px}
     <div class="sub">A foto fica privada — só quem loga nessa conta vê</div>
     <input type="hidden" id="maId">
     <div class="field"><label>Data e horário</label><input id="maData" type="datetime-local"></div>
+    <div class="field"><label>Profissional</label>
+      <select id="maProfissional" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream)">
+        <option value="">Sem profissional definido</option>
+      </select>
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="maRemarcacao" onchange="toggleRemarcacaoBox()" style="width:16px;height:16px">
+        🔁 É remarcação de um dia que o paciente faltou?
+      </label>
+      <div id="maRemarcacaoBox" style="display:none;margin-top:10px">
+        <label style="font-size:11px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px">Data original que faltou</label>
+        <input id="maDataOriginal" type="date">
+      </div>
+    </div>
     <div class="field"><label>Indicadores / observações</label><textarea id="maIndicadores" rows="3" placeholder="Ex: trabalhou coordenação motora..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream);resize:vertical"></textarea></div>
     <div class="field"><label>Foto (opcional)</label>
       <input type="file" id="maFotoInput" accept="image/*" style="display:none" onchange="prevAtendFoto(this)">
@@ -353,6 +379,21 @@ input,textarea,select{font-family:inherit;font-size:14px}
   </div>
 </div>
 
+<!-- MODAL: PROFISSIONAL (EQUIPE) -->
+<div class="modal-bg" id="modalProfissional">
+  <div class="modal">
+    <h3 id="mprTitulo">Novo Profissional</h3>
+    <div class="sub">Define quanto pagar por atendimento realizado</div>
+    <input type="hidden" id="mprId">
+    <div class="field"><label>Nome</label><input id="mprNome" placeholder="Ex: Joana"></div>
+    <div class="field"><label>Valor combinado por atendimento (R$)</label><input id="mprValor" type="number" step="0.01" placeholder="0,00"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="fecharModal('modalProfissional')">Cancelar</button>
+      <button class="btn-save" onclick="salvarProfissional()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: HORÁRIO FIXO -->
 <div class="modal-bg" id="modalHorario">
   <div class="modal">
@@ -360,6 +401,11 @@ input,textarea,select{font-family:inherit;font-size:14px}
     <div class="sub">Define um dia e horário que se repete toda semana</div>
     <div class="field"><label>Paciente</label>
       <select id="mhPaciente" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream)"></select>
+    </div>
+    <div class="field"><label>Profissional</label>
+      <select id="mhProfissional" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream)">
+        <option value="">Sem profissional definido</option>
+      </select>
     </div>
     <div class="field"><label>Dia da semana</label>
       <select id="mhDia" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream)">
@@ -479,6 +525,7 @@ async function authHeaders(){
 
 async function carregarTudo(){
   await carregarPacientes();
+  await carregarEquipe();
   await Promise.all([carregarFinanceiro(), carregarHorarios()]);
 }
 
@@ -615,9 +662,11 @@ function renderAgenda(){
       const pac = _pacientesCache.find(p => p.id === h.paciente_id);
       if (!pac) return '';
       const cor = corDoPaciente(pac.id);
+      const prof = h.profissional_id ? _equipeCache.find(p => p.id === h.profissional_id) : null;
       return `<div style="background:${cor}18;border-left:3px solid ${cor};border-radius:8px;padding:8px 10px;margin-bottom:6px">
         <div style="font-size:11px;font-weight:800;color:${cor}">${h.horario}</div>
         <div style="font-size:12.5px;font-weight:700;color:var(--ink)">${pac.nome_crianca}</div>
+        ${prof ? `<div style="font-size:10px;color:var(--ink-soft)">👤 ${prof.nome}</div>` : ''}
         <div style="font-size:10px;color:var(--ink-soft)">${pac.tipo_cobranca==='avulso' ? '🔹 avulso' : '📦 pacote'}</div>
       </div>`;
     }).join('') || '<div style="font-size:11px;color:var(--ink-soft);text-align:center;padding:14px 4px">—</div>';
@@ -661,9 +710,79 @@ function renderAgenda(){
   subEl.textContent = sub + (filtroPaciente ? ' · filtrado por paciente' : '');
 }
 
+// ── EQUIPE ──────────────────────────────────────────────────
+let _equipeCache = [];
+
+async function carregarEquipe(){
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe?user_id=eq.${S.user.id}&ativo=eq.true&order=nome.asc`, {headers});
+  _equipeCache = res.ok ? await res.json() : [];
+  popularSelectsProfissional();
+  await renderEquipe();
+}
+
+function popularSelectsProfissional(){
+  const opts = '<option value="">Sem profissional definido</option>' + _equipeCache.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+  ['mhProfissional','maProfissional'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { const atual = el.value; el.innerHTML = opts; el.value = atual; }
+  });
+}
+
+async function renderEquipe(){
+  const el = document.getElementById('equipeList');
+  if (!_equipeCache.length) { el.innerHTML = '<div class="empty">Nenhum profissional cadastrado ainda</div>'; return; }
+  const headers = await authHeaders();
+  const hoje = new Date();
+  const inicioMes = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-01';
+
+  const linhas = await Promise.all(_equipeCache.map(async prof => {
+    const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?user_id=eq.${S.user.id}&profissional_id=eq.${prof.id}&data_atendimento=gte.${inicioMes}&select=id`, {headers});
+    const atends = res.ok ? await res.json() : [];
+    const qtd = atends.length;
+    const total = qtd * Number(prof.valor_por_atendimento||0);
+    return `<div class="pac-card" onclick="abrirModalProfissional(${JSON.stringify(prof).replace(/"/g,'&quot;')})">
+      <div class="pac-avatar" style="background:linear-gradient(135deg,var(--sage),var(--sage-deep))">${(prof.nome[0]||'?').toUpperCase()}</div>
+      <div class="pac-info">
+        <div class="nome">${prof.nome}</div>
+        <div class="resp">${qtd} atendimento(s) este mês · ${fmtReais(prof.valor_por_atendimento)}/atend.</div>
+      </div>
+      <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--sage-deep)">${fmtReais(total)}</div>
+    </div>`;
+  }));
+  el.innerHTML = linhas.join('');
+}
+
+function abrirModalProfissional(prof){
+  document.getElementById('mprTitulo').textContent = prof ? 'Editar Profissional' : 'Novo Profissional';
+  document.getElementById('mprId').value = prof ? prof.id : '';
+  document.getElementById('mprNome').value = prof ? prof.nome : '';
+  document.getElementById('mprValor').value = prof ? prof.valor_por_atendimento : '';
+  abrirModal('modalProfissional');
+}
+
+async function salvarProfissional(){
+  const nome = document.getElementById('mprNome').value.trim();
+  const valor = Number(document.getElementById('mprValor').value) || 0;
+  if (!nome) { toast('⚠️ Digita o nome'); return; }
+  const headers = await authHeaders();
+  const id = document.getElementById('mprId').value;
+  let res;
+  if (id) {
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify({nome, valor_por_atendimento: valor})});
+  } else {
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe`, {method:'POST', headers, body: JSON.stringify({nome, valor_por_atendimento: valor, user_id: S.user.id})});
+  }
+  if (!res.ok) { toast('❌ Não consegui salvar'); return; }
+  fecharModal('modalProfissional');
+  toast('✅ Profissional salvo!');
+  carregarEquipe();
+}
+
 function abrirModalHorario(){
   const sel = document.getElementById('mhPaciente');
   sel.innerHTML = _pacientesCache.map(p => `<option value="${p.id}">${p.nome_crianca}</option>`).join('');
+  popularSelectsProfissional();
   if (!_pacientesCache.length) { toast('⚠️ Cadastra um paciente primeiro'); return; }
   abrirModal('modalHorario');
 }
@@ -672,11 +791,22 @@ async function salvarHorario(){
   const pacienteId = document.getElementById('mhPaciente').value;
   const dia = Number(document.getElementById('mhDia').value);
   const horario = document.getElementById('mhHorario').value;
+  const profissionalId = document.getElementById('mhProfissional').value || null;
   if (!pacienteId || !horario) { toast('⚠️ Preenche tudo'); return; }
+
+  // Checa conflito: mesmo profissional, mesmo dia, mesmo horário já ocupado
+  if (profissionalId) {
+    const jaOcupado = _horariosCache.some(h => h.profissional_id === profissionalId && h.dia_semana === dia && h.horario === horario);
+    if (jaOcupado) {
+      const prof = _equipeCache.find(p => p.id === profissionalId);
+      if (!confirm(`⚠️ ${prof ? prof.nome : 'Esse profissional'} já tem atendimento nesse dia e horário. Quer salvar mesmo assim?`)) return;
+    }
+  }
+
   const headers = await authHeaders();
   const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_horarios`, {
     method:'POST', headers,
-    body: JSON.stringify({ paciente_id: pacienteId, user_id: S.user.id, dia_semana: dia, horario })
+    body: JSON.stringify({ paciente_id: pacienteId, user_id: S.user.id, dia_semana: dia, horario, profissional_id: profissionalId })
   });
   if (!res.ok) { toast('❌ Não consegui salvar'); return; }
   fecharModal('modalHorario');
@@ -769,12 +899,18 @@ async function carregarAtendimentos(pacienteId){
     const statusBadge = a.status_pagamento === 'pago'
       ? `<button onclick="event.stopPropagation();desmarcarPago('${a.id}')" class="badge avulso" style="border:none">✅ Pago</button>`
       : `<button onclick="event.stopPropagation();marcarPago('${a.id}')" class="badge pacote" style="border:none">⏳ Marcar pago</button>`;
+    const prof = a.profissional_id ? _equipeCache.find(p => p.id === a.profissional_id) : null;
+    const remarcacaoBadge = a.remarcacao
+      ? `<div style="font-size:11px;color:var(--clay);font-weight:700;margin-bottom:4px">🔁 Remarcação${a.data_original_remarcacao ? ' — faltou em ' + new Date(a.data_original_remarcacao+'T12:00:00').toLocaleDateString('pt-BR') : ''}</div>`
+      : '';
     return `<div class="pac-card" style="flex-direction:column;align-items:stretch;padding:0;cursor:pointer" onclick="abrirModalAtendimento('${a.id}')">
       ${fotoHtml}
       <div style="padding:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <span style="font-weight:700;font-size:13px">${dataFmt}</span>${statusBadge}
         </div>
+        ${remarcacaoBadge}
+        ${prof ? `<div style="font-size:11px;color:var(--ink-soft);margin-bottom:4px">👤 ${prof.nome}</div>` : ''}
         ${a.indicadores ? `<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:6px">${a.indicadores}</div>` : ''}
         <div style="font-weight:700;color:var(--sage-deep)">${fmtReais(a.valor)}</div>
       </div>
@@ -790,6 +926,7 @@ function abrirModalAtendimento(atendimentoId){
   document.getElementById('maTitulo').textContent = existente ? 'Editar Atendimento' : 'Registrar Atendimento';
   document.getElementById('maBtnExcluir').style.display = existente ? 'block' : 'none';
   document.getElementById('maFotoInput').value = '';
+  popularSelectsProfissional();
 
   if (existente) {
     const dt = new Date(existente.data_atendimento);
@@ -797,6 +934,10 @@ function abrirModalAtendimento(atendimentoId){
     document.getElementById('maData').value = dt.toISOString().slice(0,16);
     document.getElementById('maIndicadores').value = existente.indicadores || '';
     document.getElementById('maValor').value = existente.valor || '';
+    document.getElementById('maProfissional').value = existente.profissional_id || '';
+    document.getElementById('maRemarcacao').checked = !!existente.remarcacao;
+    document.getElementById('maDataOriginal').value = existente.data_original_remarcacao || '';
+    toggleRemarcacaoBox();
     document.getElementById('maFotoBox').innerHTML = '📷 Toque pra escolher — Câmera ou Galeria';
     if (existente.foto_path) {
       sb.storage.from('clinica-fotos').createSignedUrl(existente.foto_path, 3600).then(({data}) => {
@@ -808,9 +949,17 @@ function abrirModalAtendimento(atendimentoId){
     document.getElementById('maData').value = agora.toISOString().slice(0,16);
     document.getElementById('maIndicadores').value = '';
     document.getElementById('maValor').value = _pacienteAtual ? (_pacienteAtual.valor_sessao||'') : '';
+    document.getElementById('maProfissional').value = '';
+    document.getElementById('maRemarcacao').checked = false;
+    document.getElementById('maDataOriginal').value = '';
+    toggleRemarcacaoBox();
     document.getElementById('maFotoBox').innerHTML = '📷 Toque pra escolher — Câmera ou Galeria';
   }
   abrirModal('modalAtendimento');
+}
+
+function toggleRemarcacaoBox(){
+  document.getElementById('maRemarcacaoBox').style.display = document.getElementById('maRemarcacao').checked ? 'block' : 'none';
 }
 
 function prevAtendFoto(input){
@@ -849,10 +998,14 @@ async function salvarAtendimento(){
   } catch(e) { erroFoto = e.message; }
 
   const headers = await authHeaders();
+  const remarcacao = document.getElementById('maRemarcacao').checked;
   const corpo = {
     data_atendimento: new Date(dataHora).toISOString(),
     indicadores: document.getElementById('maIndicadores').value.trim() || null,
-    valor: Number(document.getElementById('maValor').value) || 0
+    valor: Number(document.getElementById('maValor').value) || 0,
+    profissional_id: document.getElementById('maProfissional').value || null,
+    remarcacao,
+    data_original_remarcacao: remarcacao ? (document.getElementById('maDataOriginal').value || null) : null
   };
   if (fotoPath !== undefined) corpo.foto_path = fotoPath;
 
