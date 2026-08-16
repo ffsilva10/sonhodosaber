@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Clínica Sonho do Saber</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
+<style>
+:root{
+  --cream:#FAF6EF;
+  --cream-deep:#F1EADB;
+  --ink:#2E2A24;
+  --ink-soft:#6B6459;
+  --sage:#4A7C6D;
+  --sage-deep:#365D51;
+  --sage-pale:#DCE9E4;
+  --clay:#D98E5F;
+  --clay-pale:#F6E3D2;
+  --red:#C1594A;
+  --white:#FFFFFF;
+  --border:#E5DDCC;
+  --shadow:0 2px 10px rgba(46,42,36,.06);
+  --shadow-lg:0 12px 32px rgba(46,42,36,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--cream);color:var(--ink);
+  font-family:'Work Sans',sans-serif;font-size:15px;line-height:1.5;
+  min-height:100vh;
+}
+h1,h2,h3,.serif{font-family:'Fraunces',serif}
+button{font-family:inherit;cursor:pointer}
+input,textarea,select{font-family:inherit;font-size:14px}
+::selection{background:var(--sage-pale)}
+
+/* ── LOGIN ── */
+#loginScreen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 30% 20%,var(--clay-pale) 0%,transparent 55%),
+             radial-gradient(ellipse at 80% 80%,var(--sage-pale) 0%,transparent 55%),
+             var(--cream);
+  padding:24px;
+}
+.login-card{
+  background:var(--white);border-radius:24px;box-shadow:var(--shadow-lg);
+  padding:44px 36px;width:100%;max-width:380px;text-align:center;
+  border:1px solid var(--border);
+}
+.login-mark{
+  width:64px;height:64px;border-radius:50%;margin:0 auto 18px;
+  background:linear-gradient(135deg,var(--sage),var(--sage-deep));
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+  box-shadow:0 8px 20px rgba(74,124,109,.35);
+}
+.login-title{font-size:26px;font-weight:600;color:var(--ink);margin-bottom:2px}
+.login-sub{font-size:13px;color:var(--ink-soft);margin-bottom:28px}
+.field{text-align:left;margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.field input{
+  width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;
+  background:var(--cream);color:var(--ink);outline:none;transition:border-color .2s;
+}
+.field input:focus{border-color:var(--sage)}
+.btn-primary{
+  width:100%;padding:14px;border:none;border-radius:14px;
+  background:linear-gradient(135deg,var(--sage),var(--sage-deep));color:#fff;
+  font-size:15px;font-weight:700;margin-top:8px;box-shadow:0 6px 18px rgba(74,124,109,.3);
+}
+.btn-primary:disabled{opacity:.6}
+#loginMsg{font-size:12.5px;color:var(--red);margin-top:10px;min-height:16px}
+
+/* ── APP SHELL ── */
+#app{display:none;min-height:100vh}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;background:var(--white);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:50;
+}
+.topbar-brand{display:flex;align-items:center;gap:10px}
+.topbar-brand .mark{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--sage),var(--sage-deep));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.topbar-brand .name{font-size:17px;font-weight:600}
+.topbar-brand .name span{color:var(--sage)}
+.topbar-actions{display:flex;align-items:center;gap:10px}
+.btn-ghost{background:none;border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+
+.main{max-width:1080px;margin:0 auto;padding:24px 20px 100px}
+
+.nav-tabs{display:flex;gap:6px;background:var(--cream-deep);border-radius:14px;padding:5px;margin-bottom:22px;max-width:460px}
+.nav-tab{flex:1;padding:10px;border:none;background:transparent;border-radius:10px;font-size:13.5px;font-weight:700;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;gap:6px}
+.nav-tab.active{background:var(--white);color:var(--sage-deep);box-shadow:var(--shadow)}
+
+.page{display:none}
+.page.active{display:block}
+
+/* ── CARDS / GRID ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:18px;padding:18px}
+.stat-card .lbl{font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.stat-card .val{font-size:26px;font-weight:600;font-family:'Fraunces',serif}
+.stat-card.sage .val{color:var(--sage-deep)}
+.stat-card.clay .val{color:var(--clay)}
+.stat-card.red .val{color:var(--red)}
+
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-head h2{font-size:19px;font-weight:600}
+
+.btn-add{background:var(--sage);color:#fff;border:none;border-radius:12px;padding:10px 18px;font-size:13.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(74,124,109,.25)}
+
+.card-list{display:flex;flex-direction:column;gap:10px}
+.pac-card{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:box-shadow .15s}
+.pac-card:hover{box-shadow:var(--shadow)}
+.pac-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--clay),#C77441);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;flex-shrink:0}
+.pac-info{flex:1;min-width:0}
+.pac-info .nome{font-weight:700;font-size:15px}
+.pac-info .resp{font-size:12.5px;color:var(--ink-soft);margin-top:1px}
+.badge{border-radius:20px;padding:4px 11px;font-size:10.5px;font-weight:800;white-space:nowrap}
+.badge.avulso{background:var(--sage-pale);color:var(--sage-deep)}
+.badge.pacote{background:var(--clay-pale);color:#A85C2E}
+
+.empty{text-align:center;padding:40px 20px;color:var(--ink-soft);font-size:13.5px}
+
+/* ── LANCS LIST ── */
+.lanc-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--border)}
+.lanc-row:last-child{border-bottom:none}
+.lanc-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.lanc-icon.receita{background:var(--sage-pale)}
+.lanc-icon.gasto{background:#FBE3DE}
+.lanc-body{flex:1;min-width:0}
+.lanc-body .desc{font-weight:600;font-size:13.5px}
+.lanc-body .meta{font-size:11.5px;color:var(--ink-soft);margin-top:1px}
+.lanc-val{font-weight:700;font-size:14px;white-space:nowrap}
+.lanc-val.receita{color:var(--sage-deep)}
+.lanc-val.gasto{color:var(--red)}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(46,42,36,.45);backdrop-filter:blur(3px);z-index:200;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+.modal-bg.open{display:flex}
+.modal{background:var(--white);border-radius:22px;width:100%;max-width:420px;padding:26px;margin:20px 0;box-shadow:var(--shadow-lg)}
+.modal h3{font-size:19px;font-weight:600;margin-bottom:4px}
+.modal .sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:18px}
+.modal .field{margin-bottom:13px}
+.modal-actions{display:flex;gap:10px;margin-top:18px}
+.btn-cancel{flex:1;background:var(--cream);border:1px solid var(--border);border-radius:12px;padding:12px;font-weight:700;color:var(--ink-soft);font-size:13.5px}
+.btn-save{flex:1;background:linear-gradient(135deg,var(--sage),var(--sage-deep));border:none;border-radius:12px;padding:12px;font-weight:700;color:#fff;font-size:13.5px}
+.pill-toggle{display:flex;gap:8px;margin-bottom:13px}
+.pill-toggle button{flex:1;padding:10px;border-radius:11px;font-size:12.5px;font-weight:700;border:1.5px solid var(--border);background:var(--white);color:var(--ink-soft)}
+.pill-toggle button.on{background:var(--sage);border-color:var(--sage);color:#fff}
+.photo-drop{width:100%;height:110px;border:1.5px dashed var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:12.5px;font-weight:600;overflow:hidden;background:var(--cream);text-align:center;padding:8px}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:13px 22px;border-radius:14px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow-lg);opacity:0;transition:all .3s;z-index:500;max-width:88vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+#loadingOverlay{display:none;position:fixed;inset:0;background:rgba(250,246,239,.9);z-index:600;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.spinner{width:34px;height:34px;border:3px solid var(--sage-pale);border-top-color:var(--sage);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:560px){
+  .stat-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-mark">🌱</div>
+    <div class="login-title">Sonho do Saber</div>
+    <div class="login-sub">Gestão da clínica</div>
+    <div class="field"><label>E-mail</label><input type="email" id="loginEmail" placeholder="seu@email.com" inputmode="email"></div>
+    <div class="field"><label>Senha</label><input type="password" id="loginPass" placeholder="Sua senha"></div>
+    <button class="btn-primary" id="loginBtn" onclick="fazerLogin()">Entrar</button>
+    <div id="loginMsg"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="mark">🌱</div>
+      <div class="name">Sonho do <span>Saber</span></div>
+    </div>
+    <div class="topbar-actions">
+      <span id="userLabel" style="font-size:12.5px;color:var(--ink-soft)"></span>
+      <button class="btn-ghost" onclick="sair()">Sair</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-page="inicio" onclick="irPagina('inicio')">🏠 Início</button>
+      <button class="nav-tab" data-page="pacientes" onclick="irPagina('pacientes')">🧒 Pacientes</button>
+      <button class="nav-tab" data-page="financeiro" onclick="irPagina('financeiro')">💰 Financeiro</button>
+    </div>
+
+    <!-- INÍCIO -->
+    <div class="page active" id="page-inicio">
+      <div class="stat-grid">
+        <div class="stat-card sage"><div class="lbl">Saldo do mês</div><div class="val" id="statSaldo">R$ 0,00</div></div>
+        <div class="stat-card"><div class="lbl">Pacientes ativos</div><div class="val" id="statPacientes">0</div></div>
+        <div class="stat-card clay"><div class="lbl">Atend. pendentes</div><div class="val" id="statPendentes">0</div></div>
+        <div class="stat-card red"><div class="lbl">A receber (pendente)</div><div class="val" id="statAReceber">R$ 0,00</div></div>
+      </div>
+
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:18px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:10px">📷 Lançar despesa por foto</div>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5">Tira foto de um boleto (condomínio, luz, água) e o valor entra sozinho — a mesma foto também pode ser mandada direto pro WhatsApp da clínica.</div>
+        <input type="file" id="comprovanteInput" accept="image/*" style="display:none" onchange="processarComprovante(this)">
+        <button class="btn-add" onclick="document.getElementById('comprovanteInput').click()">📷 Tirar ou escolher foto</button>
+      </div>
+
+      <div class="section-head"><h2>Últimos lançamentos</h2></div>
+      <div class="card-list" id="inicioLancsList"><div class="empty">Carregando...</div></div>
+    </div>
+
+    <!-- PACIENTES -->
+    <div class="page" id="page-pacientes">
+      <div class="section-head">
+        <h2>Pacientes</h2>
+        <button class="btn-add" onclick="abrirModalPaciente()">+ Novo paciente</button>
+      </div>
+      <div class="card-list" id="pacientesList"><div class="empty">Carregando...</div></div>
+    </div>
+
+    <!-- FINANCEIRO -->
+    <div class="page" id="page-financeiro">
+      <div class="section-head">
+        <h2>Financeiro do mês</h2>
+        <button class="btn-add" onclick="abrirModalDespesa()">+ Nova despesa</button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card sage"><div class="lbl">Receitas</div><div class="val" id="finReceitas">R$ 0,00</div></div>
+        <div class="stat-card red"><div class="lbl">Despesas</div><div class="val" id="finGastos">R$ 0,00</div></div>
+        <div class="stat-card"><div class="lbl">Saldo</div><div class="val" id="finSaldo">R$ 0,00</div></div>
+      </div>
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:18px;padding:6px 18px">
+        <div id="financeiroLancsList"><div class="empty">Carregando...</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- DETALHE PACIENTE (overlay em página cheia) -->
+<div id="pacienteDetalheOverlay" style="display:none;position:fixed;inset:0;background:var(--cream);z-index:150;overflow-y:auto">
+  <div class="topbar">
+    <button class="btn-ghost" onclick="fecharDetalhePaciente()">← Voltar</button>
+    <div id="pdTitulo" style="font-family:'Fraunces',serif;font-size:18px;font-weight:600"></div>
+    <div style="width:60px"></div>
+  </div>
+  <div class="main" style="max-width:640px">
+    <div id="pdInfo" style="background:var(--white);border:1px solid var(--border);border-radius:18px;padding:16px;margin-bottom:18px"></div>
+    <button class="btn-add" style="width:100%;justify-content:center;margin-bottom:20px" onclick="abrirModalAtendimento()">📋 Registrar atendimento</button>
+    <div class="section-head"><h2 style="font-size:16px">Histórico</h2></div>
+    <div class="card-list" id="pdAtendimentos"></div>
+  </div>
+</div>
+
+<!-- MODAL: PACIENTE -->
+<div class="modal-bg" id="modalPaciente">
+  <div class="modal">
+    <h3 id="mpTitulo">Novo Paciente</h3>
+    <div class="sub">Ficha da criança e do responsável</div>
+    <input type="hidden" id="mpId">
+    <div class="field"><label>Nome da criança</label><input id="mpNomeCrianca" placeholder="Ex: João Silva"></div>
+    <div class="field"><label>Nome do responsável</label><input id="mpNomeResponsavel" placeholder="Ex: Maria Silva"></div>
+    <div class="field"><label>WhatsApp do responsável</label><input id="mpWhatsapp" type="tel" placeholder="19999999999"></div>
+    <div class="field"><label>Cobrança</label>
+      <div class="pill-toggle">
+        <button type="button" id="mpBtnAvulso" class="on" onclick="mpSelecionarCobranca('avulso')">Avulso</button>
+        <button type="button" id="mpBtnPacote" onclick="mpSelecionarCobranca('pacote')">Pacote/Mensal</button>
+      </div>
+      <input type="hidden" id="mpTipoCobranca" value="avulso">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field"><label>Valor (R$)</label><input id="mpValor" type="number" step="0.01" placeholder="0,00"></div>
+      <div class="field" id="mpDiaBox" style="display:none"><label>Dia pgto/mês</label><input id="mpDia" type="number" min="1" max="28" placeholder="10"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="fecharModal('modalPaciente')">Cancelar</button>
+      <button class="btn-save" onclick="salvarPaciente()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ATENDIMENTO -->
+<div class="modal-bg" id="modalAtendimento">
+  <div class="modal">
+    <h3 id="maTitulo">Registrar Atendimento</h3>
+    <div class="sub">A foto fica privada — só quem loga nessa conta vê</div>
+    <input type="hidden" id="maId">
+    <div class="field"><label>Data e horário</label><input id="maData" type="datetime-local"></div>
+    <div class="field"><label>Indicadores / observações</label><textarea id="maIndicadores" rows="3" placeholder="Ex: trabalhou coordenação motora..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream);resize:vertical"></textarea></div>
+    <div class="field"><label>Foto (opcional)</label>
+      <input type="file" id="maFotoInput" accept="image/*" style="display:none" onchange="prevAtendFoto(this)">
+      <div class="photo-drop" id="maFotoBox" onclick="document.getElementById('maFotoInput').click()">📷 Toque pra escolher — Câmera ou Galeria</div>
+    </div>
+    <div class="field"><label>Valor da sessão (R$)</label><input id="maValor" type="number" step="0.01" placeholder="0,00"></div>
+    <button id="maBtnExcluir" onclick="excluirAtendimento()" style="display:none;width:100%;background:#FBE3DE;border:1px solid #F0C4B8;border-radius:12px;padding:11px;color:var(--red);font-weight:700;font-size:13px;margin-bottom:8px">🗑️ Excluir atendimento</button>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="fecharModal('modalAtendimento')">Cancelar</button>
+      <button class="btn-save" id="maBtnSalvar" onclick="salvarAtendimento()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DESPESA MANUAL -->
+<div class="modal-bg" id="modalDespesa">
+  <div class="modal">
+    <h3>Nova Despesa</h3>
+    <div class="sub">Registra uma conta ou gasto da clínica</div>
+    <div class="field"><label>Descrição</label><input id="mdDescricao" placeholder="Ex: Conta de luz"></div>
+    <div class="field"><label>Valor (R$)</label><input id="mdValor" type="number" step="0.01" placeholder="0,00"></div>
+    <div class="field"><label>Categoria</label>
+      <select id="mdCategoria" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream)">
+        <option>Contas fixas</option><option>Material</option><option>Aluguel</option><option>Outros</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="fecharModal('modalDespesa')">Cancelar</button>
+      <button class="btn-save" onclick="salvarDespesaManual()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="loadingOverlay"><div class="spinner"></div><div style="font-size:13px;color:var(--ink-soft)">Processando...</div></div>
+
+<script>
+const SUPA_URL = 'https://dempkwhqxtiwttqdampa.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbXBrd2hxeHRpd3R0cWRhbXBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwODQ5NDIsImV4cCI6MjA5MjY2MDk0Mn0.2FzdqhA4K9CVxZ7yisKf6nHRlegZP90sYjwmbaROUH8';
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+let S = { user: null };
+let _pacientesCache = [];
+let _atendimentosCache = [];
+let _pacienteAtual = null;
+let _fotoFile = null;
+let _atendimentoIdEdicao = null;
+
+// ── CRIPTOGRAFIA (mesma chave do CaixaNoAzul, pra ler os mesmos lançamentos) ──
+function getEncKey(uid){ return CryptoJS.SHA256(uid + 'CaixaNoAzul2024@Secure').toString(); }
+function enc(text, uid){ if(!text||!uid) return text; try{ return CryptoJS.AES.encrypt(String(text), getEncKey(uid)).toString(); }catch(e){ return text; } }
+function isEncrypted(text){ return typeof text==='string' && text.startsWith('U2FsdGVk'); }
+function dec(cipher, uid){ if(!cipher||!uid) return cipher; try{ if(!isEncrypted(cipher)) return cipher; const bytes=CryptoJS.AES.decrypt(cipher, getEncKey(uid)); return bytes.toString(CryptoJS.enc.Utf8) || cipher; }catch(e){ return cipher; } }
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3200);
+}
+function loading(on){ document.getElementById('loadingOverlay').style.display = on ? 'flex' : 'none'; }
+function fmtReais(v){ return 'R$ ' + Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2}); }
+function fecharModal(id){ document.getElementById(id).classList.remove('open'); }
+function abrirModal(id){ document.getElementById(id).classList.add('open'); }
+
+// ── LOGIN ──
+async function fazerLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const msg = document.getElementById('loginMsg');
+  const btn = document.getElementById('loginBtn');
+  if (!email || !pass) { msg.textContent = 'Preenche e-mail e senha.'; return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) {
+    msg.textContent = error.message.includes('Invalid') ? 'E-mail ou senha incorretos.' : error.message;
+    btn.disabled = false; btn.textContent = 'Entrar';
+    return;
+  }
+  S.user = data.user;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('userLabel').textContent = S.user.email;
+  await carregarTudo();
+}
+
+async function sair(){
+  await sb.auth.signOut();
+  location.reload();
+}
+
+async function checarSessao(){
+  const { data } = await sb.auth.getSession();
+  if (data.session) {
+    S.user = data.session.user;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('userLabel').textContent = S.user.email;
+    await carregarTudo();
+  }
+}
+
+function irPagina(nome){
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.page === nome));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + nome).classList.add('active');
+}
+
+async function authHeaders(){
+  const { data } = await sb.auth.getSession();
+  const token = data.session ? data.session.access_token : null;
+  return {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (token||SUPA_KEY), 'Content-Type':'application/json'};
+}
+
+async function carregarTudo(){
+  await Promise.all([carregarPacientes(), carregarFinanceiro()]);
+}
+
+// ── PACIENTES ──
+async function carregarPacientes(){
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pacientes?user_id=eq.${S.user.id}&ativo=eq.true&order=nome_crianca.asc`, {headers});
+  _pacientesCache = res.ok ? await res.json() : [];
+  renderPacientes();
+  document.getElementById('statPacientes').textContent = _pacientesCache.length;
+
+  // Atendimentos pendentes (avulso não conta, só pra saber volume — soma geral de pendentes)
+  const res2 = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?user_id=eq.${S.user.id}&status_pagamento=eq.pendente&select=valor`, {headers});
+  const pend = res2.ok ? await res2.json() : [];
+  document.getElementById('statPendentes').textContent = pend.length;
+  document.getElementById('statAReceber').textContent = fmtReais(pend.reduce((s,a)=>s+Number(a.valor||0),0));
+}
+
+function renderPacientes(){
+  const el = document.getElementById('pacientesList');
+  if (!_pacientesCache.length) { el.innerHTML = '<div class="empty">Nenhum paciente cadastrado ainda</div>'; return; }
+  el.innerHTML = _pacientesCache.map(p => `
+    <div class="pac-card" onclick="abrirDetalhePaciente('${p.id}')">
+      <div class="pac-avatar">${(p.nome_crianca[0]||'?').toUpperCase()}</div>
+      <div class="pac-info">
+        <div class="nome">${p.nome_crianca}</div>
+        <div class="resp">${p.nome_responsavel || 'Sem responsável cadastrado'}</div>
+      </div>
+      <span class="badge ${p.tipo_cobranca}">${p.tipo_cobranca==='pacote'?'📦 Pacote':'🔹 Avulso'}</span>
+    </div>
+  `).join('');
+}
+
+function mpSelecionarCobranca(tipo){
+  document.getElementById('mpTipoCobranca').value = tipo;
+  document.getElementById('mpBtnAvulso').classList.toggle('on', tipo==='avulso');
+  document.getElementById('mpBtnPacote').classList.toggle('on', tipo==='pacote');
+  document.getElementById('mpDiaBox').style.display = tipo==='pacote' ? 'block' : 'none';
+}
+
+function abrirModalPaciente(paciente){
+  document.getElementById('mpTitulo').textContent = paciente ? 'Editar Paciente' : 'Novo Paciente';
+  document.getElementById('mpId').value = paciente ? paciente.id : '';
+  document.getElementById('mpNomeCrianca').value = paciente ? paciente.nome_crianca : '';
+  document.getElementById('mpNomeResponsavel').value = paciente ? (paciente.nome_responsavel||'') : '';
+  document.getElementById('mpWhatsapp').value = paciente ? (paciente.whatsapp_responsavel||'') : '';
+  document.getElementById('mpValor').value = paciente ? (paciente.valor_sessao||'') : '';
+  document.getElementById('mpDia').value = paciente ? (paciente.dia_pagamento||'') : '';
+  mpSelecionarCobranca(paciente ? paciente.tipo_cobranca : 'avulso');
+  abrirModal('modalPaciente');
+}
+
+async function salvarPaciente(){
+  const nome = document.getElementById('mpNomeCrianca').value.trim();
+  if (!nome) { toast('⚠️ Digita o nome da criança'); return; }
+  const headers = await authHeaders();
+  const id = document.getElementById('mpId').value;
+  const body = {
+    nome_crianca: nome,
+    nome_responsavel: document.getElementById('mpNomeResponsavel').value.trim() || null,
+    whatsapp_responsavel: document.getElementById('mpWhatsapp').value.replace(/\D/g,'') || null,
+    tipo_cobranca: document.getElementById('mpTipoCobranca').value,
+    valor_sessao: Number(document.getElementById('mpValor').value) || 0,
+    dia_pagamento: document.getElementById('mpDia').value ? Number(document.getElementById('mpDia').value) : null
+  };
+  let res;
+  if (id) {
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pacientes?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify(body)});
+  } else {
+    body.user_id = S.user.id;
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pacientes`, {method:'POST', headers, body: JSON.stringify(body)});
+  }
+  if (!res.ok) { toast('❌ Não consegui salvar'); return; }
+  fecharModal('modalPaciente');
+  toast('✅ Paciente salvo!');
+  carregarPacientes();
+}
+
+async function abrirDetalhePaciente(id){
+  const p = _pacientesCache.find(x => x.id === id);
+  if (!p) return;
+  _pacienteAtual = p;
+  document.getElementById('pdTitulo').textContent = p.nome_crianca;
+  document.getElementById('pdInfo').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <div><div style="font-size:11px;color:var(--ink-soft)">Responsável</div><div style="font-weight:700">${p.nome_responsavel||'—'}</div></div>
+      <button class="btn-ghost" onclick="abrirModalPaciente(_pacienteAtual)">✏️ Editar</button>
+    </div>
+    <div style="font-size:12.5px;color:var(--ink-soft)">Cobrança: <b style="color:var(--ink)">${p.tipo_cobranca==='pacote'?'Pacote/Mensal':'Avulso'}</b> · ${fmtReais(p.valor_sessao)}${p.tipo_cobranca==='pacote'&&p.dia_pagamento?' · todo dia '+p.dia_pagamento:''}</div>
+  `;
+  document.getElementById('pacienteDetalheOverlay').style.display = 'block';
+  await carregarAtendimentos(id);
+}
+function fecharDetalhePaciente(){
+  document.getElementById('pacienteDetalheOverlay').style.display = 'none';
+}
+
+async function carregarAtendimentos(pacienteId){
+  const el = document.getElementById('pdAtendimentos');
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?paciente_id=eq.${pacienteId}&order=data_atendimento.desc`, {headers});
+  const atends = res.ok ? await res.json() : [];
+  _atendimentosCache = atends;
+  if (!atends.length) { el.innerHTML = '<div class="empty">Nenhum atendimento registrado ainda</div>'; return; }
+
+  const linhas = await Promise.all(atends.map(async a => {
+    const dt = new Date(a.data_atendimento);
+    const dataFmt = dt.toLocaleDateString('pt-BR') + ' · ' + dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    let fotoHtml = '';
+    if (a.foto_path) {
+      try {
+        const {data} = await sb.storage.from('clinica-fotos').createSignedUrl(a.foto_path, 3600);
+        if (data && data.signedUrl) fotoHtml = `<img src="${data.signedUrl}" style="width:100%;height:140px;object-fit:cover;border-radius:16px 16px 0 0">`;
+      } catch(e){}
+    }
+    const statusBadge = a.status_pagamento === 'pago'
+      ? `<button onclick="event.stopPropagation();desmarcarPago('${a.id}')" class="badge avulso" style="border:none">✅ Pago</button>`
+      : `<button onclick="event.stopPropagation();marcarPago('${a.id}')" class="badge pacote" style="border:none">⏳ Marcar pago</button>`;
+    return `<div class="pac-card" style="flex-direction:column;align-items:stretch;padding:0;cursor:pointer" onclick="abrirModalAtendimento('${a.id}')">
+      ${fotoHtml}
+      <div style="padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-weight:700;font-size:13px">${dataFmt}</span>${statusBadge}
+        </div>
+        ${a.indicadores ? `<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:6px">${a.indicadores}</div>` : ''}
+        <div style="font-weight:700;color:var(--sage-deep)">${fmtReais(a.valor)}</div>
+      </div>
+    </div>`;
+  }));
+  el.innerHTML = linhas.join('');
+}
+
+function abrirModalAtendimento(atendimentoId){
+  const existente = atendimentoId ? _atendimentosCache.find(a => a.id === atendimentoId) : null;
+  _atendimentoIdEdicao = existente ? existente.id : null;
+  _fotoFile = null;
+  document.getElementById('maTitulo').textContent = existente ? 'Editar Atendimento' : 'Registrar Atendimento';
+  document.getElementById('maBtnExcluir').style.display = existente ? 'block' : 'none';
+  document.getElementById('maFotoInput').value = '';
+
+  if (existente) {
+    const dt = new Date(existente.data_atendimento);
+    dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+    document.getElementById('maData').value = dt.toISOString().slice(0,16);
+    document.getElementById('maIndicadores').value = existente.indicadores || '';
+    document.getElementById('maValor').value = existente.valor || '';
+    document.getElementById('maFotoBox').innerHTML = '📷 Toque pra escolher — Câmera ou Galeria';
+    if (existente.foto_path) {
+      sb.storage.from('clinica-fotos').createSignedUrl(existente.foto_path, 3600).then(({data}) => {
+        if (data && data.signedUrl) document.getElementById('maFotoBox').innerHTML = `<img src="${data.signedUrl}" style="width:100%;height:100%;object-fit:cover">`;
+      });
+    }
+  } else {
+    const agora = new Date(); agora.setMinutes(agora.getMinutes() - agora.getTimezoneOffset());
+    document.getElementById('maData').value = agora.toISOString().slice(0,16);
+    document.getElementById('maIndicadores').value = '';
+    document.getElementById('maValor').value = _pacienteAtual ? (_pacienteAtual.valor_sessao||'') : '';
+    document.getElementById('maFotoBox').innerHTML = '📷 Toque pra escolher — Câmera ou Galeria';
+  }
+  abrirModal('modalAtendimento');
+}
+
+function prevAtendFoto(input){
+  const file = input.files && input.files[0];
+  if (!file) return;
+  _fotoFile = file;
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById('maFotoBox').innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`; };
+  reader.readAsDataURL(file);
+}
+
+async function uploadFotoClinica(file, uid){
+  const ext = file.type === 'image/png' ? 'png' : 'jpg';
+  const path = uid + '/' + Date.now() + '.' + ext;
+  const { data: sd } = await sb.auth.getSession();
+  const token = sd.session ? sd.session.access_token : null;
+  const res = await fetch(`${SUPA_URL}/storage/v1/object/clinica-fotos/${path}`, {
+    method: 'POST',
+    headers: {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token, 'Content-Type': file.type || 'image/jpeg'},
+    body: file
+  });
+  if (!res.ok) throw new Error('Upload falhou: ' + await res.text());
+  return path;
+}
+
+async function salvarAtendimento(){
+  if (!_pacienteAtual) return;
+  const dataHora = document.getElementById('maData').value;
+  if (!dataHora) { toast('⚠️ Preenche a data'); return; }
+  const btn = document.getElementById('maBtnSalvar');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  let fotoPath = undefined, erroFoto = null;
+  try {
+    if (_fotoFile) fotoPath = await uploadFotoClinica(_fotoFile, S.user.id);
+    else if (!_atendimentoIdEdicao) fotoPath = null;
+  } catch(e) { erroFoto = e.message; }
+
+  const headers = await authHeaders();
+  const corpo = {
+    data_atendimento: new Date(dataHora).toISOString(),
+    indicadores: document.getElementById('maIndicadores').value.trim() || null,
+    valor: Number(document.getElementById('maValor').value) || 0
+  };
+  if (fotoPath !== undefined) corpo.foto_path = fotoPath;
+
+  let res;
+  if (_atendimentoIdEdicao) {
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?id=eq.${_atendimentoIdEdicao}`, {method:'PATCH', headers, body: JSON.stringify(corpo)});
+  } else {
+    corpo.paciente_id = _pacienteAtual.id;
+    corpo.user_id = S.user.id;
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos`, {method:'POST', headers, body: JSON.stringify(corpo)});
+  }
+  btn.disabled = false; btn.textContent = 'Salvar';
+  if (!res.ok) { toast('❌ Não consegui salvar'); return; }
+  fecharModal('modalAtendimento');
+  toast(erroFoto ? '⚠️ Salvo, mas a foto falhou: ' + erroFoto : '✅ Atendimento salvo!');
+  carregarAtendimentos(_pacienteAtual.id);
+  carregarPacientes();
+}
+
+async function excluirAtendimento(){
+  if (!_atendimentoIdEdicao || !confirm('Excluir esse atendimento?')) return;
+  const headers = await authHeaders();
+  const resA = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?id=eq.${_atendimentoIdEdicao}&select=lanc_id`, {headers});
+  const arrA = resA.ok ? await resA.json() : [];
+  const lancId = arrA[0] ? arrA[0].lanc_id : null;
+  if (lancId) await fetch(`${SUPA_URL}/rest/v1/fp_lancs?id=eq.${lancId}`, {method:'DELETE', headers});
+  await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?id=eq.${_atendimentoIdEdicao}`, {method:'DELETE', headers});
+  fecharModal('modalAtendimento');
+  toast('🗑️ Excluído');
+  carregarAtendimentos(_pacienteAtual.id);
+  carregarPacientes();
+  carregarFinanceiro();
+}
+
+async function marcarPago(atendimentoId){
+  const headers = await authHeaders();
+  const resA = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?id=eq.${atendimentoId}`, {headers});
+  const arrA = resA.ok ? await resA.json() : [];
+  if (!arrA.length) return;
+  const at = arrA[0];
+  const descLanc = enc('Atendimento: ' + _pacienteAtual.nome_crianca, S.user.id);
+  const catLanc = enc('Clínica', S.user.id);
+  const resLanc = await fetch(`${SUPA_URL}/rest/v1/fp_lancs`, {
+    method:'POST', headers: {...headers, 'Prefer':'return=representation'},
+    body: JSON.stringify({ user_id: S.user.id, descricao: descLanc, valor: Number(at.valor)||0, data: new Date().toISOString().slice(0,10), cat: catLanc, tipo: 'receita', parcelas:1, parcela_atual:1 })
+  });
+  const lancCriado = resLanc.ok ? (await resLanc.json())[0] : null;
+  await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?id=eq.${atendimentoId}`, {method:'PATCH', headers, body: JSON.stringify({status_pagamento:'pago', lanc_id: lancCriado?lancCriado.id:null})});
+  toast('✅ Pago — entrou no financeiro!');
+  carregarAtendimentos(_pacienteAtual.id);
+  carregarFinanceiro();
+}
+
+async function desmarcarPago(atendimentoId){
+  if (!confirm('Desmarcar como pago? A receita será removida do financeiro.')) return;
+  const headers = await authHeaders();
+  const resA = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?id=eq.${atendimentoId}&select=lanc_id`, {headers});
+  const arrA = resA.ok ? await resA.json() : [];
+  const lancId = arrA[0] ? arrA[0].lanc_id : null;
+  if (lancId) await fetch(`${SUPA_URL}/rest/v1/fp_lancs?id=eq.${lancId}`, {method:'DELETE', headers});
+  await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?id=eq.${atendimentoId}`, {method:'PATCH', headers, body: JSON.stringify({status_pagamento:'pendente', lanc_id:null})});
+  toast('Desmarcado');
+  carregarAtendimentos(_pacienteAtual.id);
+  carregarFinanceiro();
+}
+
+// ── FINANCEIRO ──
+async function carregarFinanceiro(){
+  const headers = await authHeaders();
+  const hoje = new Date();
+  const inicio = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-01';
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_lancs?user_id=eq.${S.user.id}&data=gte.${inicio}&order=data.desc&limit=200`, {headers});
+  const lancs = res.ok ? await res.json() : [];
+  let receitas = 0, gastos = 0;
+  lancs.forEach(l => { if (l.tipo==='receita') receitas += Number(l.valor||0); else gastos += Number(l.valor||0); });
+  document.getElementById('finReceitas').textContent = fmtReais(receitas);
+  document.getElementById('finGastos').textContent = fmtReais(gastos);
+  document.getElementById('finSaldo').textContent = fmtReais(receitas - gastos);
+  document.getElementById('statSaldo').textContent = fmtReais(receitas - gastos);
+
+  const html = lancs.length ? lancs.slice(0,80).map(l => {
+    const desc = dec(l.descricao, S.user.id);
+    const cat = dec(l.cat, S.user.id);
+    const dataFmt = new Date(l.data + 'T12:00:00').toLocaleDateString('pt-BR');
+    return `<div class="lanc-row">
+      <div class="lanc-icon ${l.tipo}">${l.tipo==='receita'?'💰':'🧾'}</div>
+      <div class="lanc-body"><div class="desc">${desc}</div><div class="meta">${cat||''} · ${dataFmt}</div></div>
+      <div class="lanc-val ${l.tipo}">${l.tipo==='receita'?'+':'−'} ${fmtReais(l.valor)}</div>
+    </div>`;
+  }).join('') : '<div class="empty">Nenhum lançamento este mês</div>';
+  document.getElementById('financeiroLancsList').innerHTML = html;
+  // Card do Início mostra só os 5 lançamentos mais recentes
+  const top5 = lancs.slice(0,5).map(l => {
+    const desc = dec(l.descricao, S.user.id);
+    const cat = dec(l.cat, S.user.id);
+    const dataFmt = new Date(l.data + 'T12:00:00').toLocaleDateString('pt-BR');
+    return `<div class="lanc-row">
+      <div class="lanc-icon ${l.tipo}">${l.tipo==='receita'?'💰':'🧾'}</div>
+      <div class="lanc-body"><div class="desc">${desc}</div><div class="meta">${cat||''} · ${dataFmt}</div></div>
+      <div class="lanc-val ${l.tipo}">${l.tipo==='receita'?'+':'−'} ${fmtReais(l.valor)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('inicioLancsList').innerHTML = lancs.length ? `<div style="background:var(--white);border:1px solid var(--border);border-radius:18px;padding:6px 18px">${top5}</div>` : '<div class="empty">Nenhum lançamento este mês</div>';
+}
+
+function abrirModalDespesa(){
+  document.getElementById('mdDescricao').value = '';
+  document.getElementById('mdValor').value = '';
+  abrirModal('modalDespesa');
+}
+
+async function salvarDespesaManual(){
+  const desc = document.getElementById('mdDescricao').value.trim();
+  const valor = Number(document.getElementById('mdValor').value);
+  if (!desc || !valor) { toast('⚠️ Preenche descrição e valor'); return; }
+  const headers = await authHeaders();
+  await fetch(`${SUPA_URL}/rest/v1/fp_lancs`, {
+    method:'POST', headers,
+    body: JSON.stringify({
+      user_id: S.user.id,
+      descricao: enc(desc, S.user.id),
+      valor, tipo:'gasto',
+      data: new Date().toISOString().slice(0,10),
+      cat: enc(document.getElementById('mdCategoria').value, S.user.id),
+      parcelas:1, parcela_atual:1
+    })
+  });
+  fecharModal('modalDespesa');
+  toast('✅ Despesa lançada!');
+  carregarFinanceiro();
+}
+
+// ── COMPROVANTE POR FOTO (IA) ──
+function processarComprovante(input){
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result.split(',')[1];
+    loading(true);
+    try {
+      const resp = await fetch(`${SUPA_URL}/functions/v1/analisar-comprovante`, {
+        method:'POST',
+        headers: {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+        body: JSON.stringify({
+          model: 'claude-sonnet-5', max_tokens: 400,
+          messages: [{ role:'user', content:[
+            { type:'image', source:{ type:'base64', media_type:'image/jpeg', data: base64 } },
+            { type:'text', text: 'Ano atual: 2026. Analise este comprovante/boleto/conta. Se a data não tiver ano use 2026. Extraia APENAS em JSON puro sem markdown: {"valor": numero, "descricao": "nome do estabelecimento ou conta", "data": "YYYY-MM-DD ou null", "categoria": "Contas fixas|Material|Aluguel|Outros"}. Se não for um comprovante válido retorne {"erro": "Imagem inválida"}.' }
+          ]}]
+        })
+      });
+      const data = await resp.json();
+      const text = data.content?.[0]?.text || '';
+      const m = text.match(/\{[\s\S]*\}/);
+      const dados = m ? JSON.parse(m[0]) : null;
+      loading(false);
+      if (!dados || dados.erro || !dados.valor) { toast('⚠️ Não consegui ler essa imagem. Tenta lançar manual.'); return; }
+      const headers = await authHeaders();
+      await fetch(`${SUPA_URL}/rest/v1/fp_lancs`, {
+        method:'POST', headers,
+        body: JSON.stringify({
+          user_id: S.user.id,
+          descricao: enc(dados.descricao || 'Conta', S.user.id),
+          valor: Number(dados.valor),
+          tipo:'gasto',
+          data: dados.data || new Date().toISOString().slice(0,10),
+          cat: enc(dados.categoria || 'Contas fixas', S.user.id),
+          parcelas:1, parcela_atual:1
+        })
+      });
+      toast('✅ Lançado: ' + fmtReais(dados.valor) + ' — ' + (dados.descricao||''));
+      carregarFinanceiro();
+    } catch(err) {
+      loading(false);
+      toast('❌ Erro ao analisar a foto');
+    }
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+checarSessao();
+</script>
+</body>
+</html>
