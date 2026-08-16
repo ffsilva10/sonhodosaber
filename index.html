@@ -193,9 +193,10 @@ input,textarea,select{font-family:inherit;font-size:14px}
   </div>
 
   <div class="main">
-    <div class="nav-tabs">
+    <div class="nav-tabs" style="max-width:600px">
       <button class="nav-tab active" data-page="inicio" onclick="irPagina('inicio')">🏠 Início</button>
       <button class="nav-tab" data-page="pacientes" onclick="irPagina('pacientes')">🧒 Pacientes</button>
+      <button class="nav-tab" data-page="agenda" onclick="irPagina('agenda')">📅 Agenda</button>
       <button class="nav-tab" data-page="financeiro" onclick="irPagina('financeiro')">💰 Financeiro</button>
     </div>
 
@@ -217,6 +218,48 @@ input,textarea,select{font-family:inherit;font-size:14px}
 
       <div class="section-head"><h2>Últimos lançamentos</h2></div>
       <div class="card-list" id="inicioLancsList"><div class="empty">Carregando...</div></div>
+    </div>
+
+    <!-- AGENDA / PROJEÇÃO -->
+    <div class="page" id="page-agenda">
+      <div class="section-head">
+        <h2>Agenda — Projeção</h2>
+        <button class="btn-add" onclick="abrirModalHorario()">+ Adicionar horário fixo</button>
+      </div>
+
+      <!-- Barra de controle: navegação de semana + seletor Dia/Semana/Mês + total -->
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:18px;padding:16px 18px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="btn-ghost" onclick="agendaMudarSemana(-1)">‹</button>
+            <div id="agendaSemanaLabel" style="font-weight:700;font-size:14px;min-width:150px;text-align:center"></div>
+            <button class="btn-ghost" onclick="agendaMudarSemana(1)">›</button>
+          </div>
+          <div class="pill-toggle" style="margin-bottom:0;width:auto">
+            <button type="button" id="agendaBtnDia" onclick="agendaSelecionarPeriodo('dia')">Dia</button>
+            <button type="button" id="agendaBtnSemana" class="on" onclick="agendaSelecionarPeriodo('semana')">Semana</button>
+            <button type="button" id="agendaBtnMes" onclick="agendaSelecionarPeriodo('mes')">Mês</button>
+          </div>
+        </div>
+        <div style="background:var(--sage-pale);border-radius:14px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--sage-deep);text-transform:uppercase;letter-spacing:.4px" id="agendaTotalLabel">Total da semana</div>
+            <div style="font-size:11px;color:var(--sage-deep);opacity:.8" id="agendaTotalSub"></div>
+          </div>
+          <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:600;color:var(--sage-deep)" id="agendaTotalValor">R$ 0,00</div>
+        </div>
+      </div>
+
+      <!-- Filtro por paciente -->
+      <div style="margin-bottom:16px">
+        <label style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Ver só um paciente</label>
+        <select id="agendaFiltroPaciente" onchange="renderAgenda()" style="width:100%;max-width:320px;padding:11px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--white)">
+          <option value="">Todos os pacientes</option>
+        </select>
+      </div>
+
+      <!-- Grid semanal Seg-Sex -->
+      <div id="agendaGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px"></div>
     </div>
 
     <!-- PACIENTES -->
@@ -306,6 +349,31 @@ input,textarea,select{font-family:inherit;font-size:14px}
     <div class="modal-actions">
       <button class="btn-cancel" onclick="fecharModal('modalAtendimento')">Cancelar</button>
       <button class="btn-save" id="maBtnSalvar" onclick="salvarAtendimento()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: HORÁRIO FIXO -->
+<div class="modal-bg" id="modalHorario">
+  <div class="modal">
+    <h3>Adicionar Horário Fixo</h3>
+    <div class="sub">Define um dia e horário que se repete toda semana</div>
+    <div class="field"><label>Paciente</label>
+      <select id="mhPaciente" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream)"></select>
+    </div>
+    <div class="field"><label>Dia da semana</label>
+      <select id="mhDia" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream)">
+        <option value="1">Segunda-feira</option>
+        <option value="2">Terça-feira</option>
+        <option value="3">Quarta-feira</option>
+        <option value="4">Quinta-feira</option>
+        <option value="5">Sexta-feira</option>
+      </select>
+    </div>
+    <div class="field"><label>Horário</label><input id="mhHorario" type="time" value="09:00"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="fecharModal('modalHorario')">Cancelar</button>
+      <button class="btn-save" onclick="salvarHorario()">Salvar</button>
     </div>
   </div>
 </div>
@@ -410,7 +478,8 @@ async function authHeaders(){
 }
 
 async function carregarTudo(){
-  await Promise.all([carregarPacientes(), carregarFinanceiro()]);
+  await carregarPacientes();
+  await Promise.all([carregarFinanceiro(), carregarHorarios()]);
 }
 
 // ── PACIENTES ──
@@ -441,6 +510,178 @@ function renderPacientes(){
       <span class="badge ${p.tipo_cobranca}">${p.tipo_cobranca==='pacote'?'📦 Pacote':'🔹 Avulso'}</span>
     </div>
   `).join('');
+}
+
+// ── AGENDA / PROJEÇÃO ──────────────────────────────────────────
+let _horariosCache = [];
+let _agendaOffsetSemana = 0; // 0 = semana atual
+let _agendaPeriodo = 'semana'; // 'dia' | 'semana' | 'mes'
+let _agendaDiaSelecionado = null; // 1-5, só usado no modo 'dia'
+const DIAS_LABEL = ['', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
+const DIAS_LABEL_CURTO = ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+const PALETA_PACIENTES = ['#4A7C6D','#D98E5F','#7A6BA8','#C1594A','#3D8B9E','#B08A3E','#5E8E5A','#A85C7E'];
+
+function corDoPaciente(pacienteId){
+  const idx = _pacientesCache.findIndex(p => p.id === pacienteId);
+  return PALETA_PACIENTES[(idx >= 0 ? idx : 0) % PALETA_PACIENTES.length];
+}
+
+function agendaSegundaDaSemana(offset){
+  const hoje = new Date();
+  const diaSemana = hoje.getDay(); // 0=dom..6=sáb
+  const distancia = diaSemana === 0 ? -6 : 1 - diaSemana;
+  const segunda = new Date(hoje);
+  segunda.setDate(hoje.getDate() + distancia + (offset * 7));
+  segunda.setHours(0,0,0,0);
+  return segunda;
+}
+
+async function carregarHorarios(){
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_horarios?user_id=eq.${S.user.id}&ativo=eq.true&order=horario.asc`, {headers});
+  _horariosCache = res.ok ? await res.json() : [];
+  popularFiltroPacienteAgenda();
+  renderAgenda();
+}
+
+function popularFiltroPacienteAgenda(){
+  const sel = document.getElementById('agendaFiltroPaciente');
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Todos os pacientes</option>' +
+    _pacientesCache.map(p => `<option value="${p.id}">${p.nome_crianca}</option>`).join('');
+  sel.value = atual;
+}
+
+function agendaMudarSemana(delta){
+  _agendaOffsetSemana += delta;
+  renderAgenda();
+}
+
+function agendaSelecionarPeriodo(periodo){
+  _agendaPeriodo = periodo;
+  document.getElementById('agendaBtnDia').classList.toggle('on', periodo==='dia');
+  document.getElementById('agendaBtnSemana').classList.toggle('on', periodo==='semana');
+  document.getElementById('agendaBtnMes').classList.toggle('on', periodo==='mes');
+  renderAgenda();
+}
+
+function agendaSelecionarDia(diaSemana){
+  _agendaDiaSelecionado = diaSemana;
+  if (_agendaPeriodo !== 'dia') agendaSelecionarPeriodo('dia');
+  else renderAgenda();
+}
+
+// Conta quantas vezes cada dia da semana (1-5) cai dentro do mês que
+// contém a segunda-feira exibida — é essa contagem que muda de mês pra
+// mês (um mês pode ter 4 segundas, outro 5), afetando a projeção mensal
+function contarDiasNoMes(anoMes, diaSemanaAlvo){
+  const ano = anoMes.getFullYear(), mes = anoMes.getMonth();
+  const ultimoDia = new Date(ano, mes+1, 0).getDate();
+  let contagem = 0;
+  for (let d=1; d<=ultimoDia; d++){
+    const dt = new Date(ano, mes, d);
+    const dow = dt.getDay(); // 0=dom..6=sáb
+    const dowAjustado = dow === 0 ? 7 : dow; // 1=seg..7=dom
+    if (dowAjustado === diaSemanaAlvo) contagem++;
+  }
+  return contagem;
+}
+
+function renderAgenda(){
+  if (!_horariosCache) return;
+  const segunda = agendaSegundaDaSemana(_agendaOffsetSemana);
+  const sexta = new Date(segunda); sexta.setDate(segunda.getDate()+4);
+  const fmtCurto = d => d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+  document.getElementById('agendaSemanaLabel').textContent = fmtCurto(segunda) + ' – ' + fmtCurto(sexta);
+
+  const filtroPaciente = document.getElementById('agendaFiltroPaciente').value;
+  const horariosFiltrados = filtroPaciente ? _horariosCache.filter(h => h.paciente_id === filtroPaciente) : _horariosCache;
+
+  // Se o dia selecionado ainda não foi definido, tenta usar hoje (se cair
+  // dentro da semana exibida e for dia útil), senão cai na segunda
+  if (_agendaDiaSelecionado === null){
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const diffDias = Math.round((hoje - segunda) / 86400000);
+    _agendaDiaSelecionado = (diffDias >= 0 && diffDias <= 4) ? diffDias+1 : 1;
+  }
+
+  // ── Grid Seg-Sex ──
+  const grid = document.getElementById('agendaGrid');
+  grid.innerHTML = [1,2,3,4,5].map(dia => {
+    const dataDoDia = new Date(segunda); dataDoDia.setDate(segunda.getDate() + (dia-1));
+    const horariosDoDia = horariosFiltrados.filter(h => h.dia_semana === dia).sort((a,b)=>a.horario.localeCompare(b.horario));
+    const selecionado = _agendaPeriodo==='dia' && _agendaDiaSelecionado===dia;
+    const cards = horariosDoDia.map(h => {
+      const pac = _pacientesCache.find(p => p.id === h.paciente_id);
+      if (!pac) return '';
+      const cor = corDoPaciente(pac.id);
+      return `<div style="background:${cor}18;border-left:3px solid ${cor};border-radius:8px;padding:8px 10px;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:800;color:${cor}">${h.horario}</div>
+        <div style="font-size:12.5px;font-weight:700;color:var(--ink)">${pac.nome_crianca}</div>
+        <div style="font-size:10px;color:var(--ink-soft)">${pac.tipo_cobranca==='avulso' ? '🔹 avulso' : '📦 pacote'}</div>
+      </div>`;
+    }).join('') || '<div style="font-size:11px;color:var(--ink-soft);text-align:center;padding:14px 4px">—</div>';
+
+    return `<div onclick="agendaSelecionarDia(${dia})" style="background:${selecionado?'var(--sage-pale)':'var(--white)'};border:1.5px solid ${selecionado?'var(--sage)':'var(--border)'};border-radius:14px;padding:10px;cursor:pointer;min-height:160px">
+      <div style="text-align:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:800;color:var(--ink-soft);text-transform:uppercase">${DIAS_LABEL_CURTO[dia]}</div>
+        <div style="font-size:13px;font-weight:700">${fmtCurto(dataDoDia)}</div>
+      </div>
+      ${cards}
+    </div>`;
+  }).join('');
+
+  // ── Total dinâmico ──
+  let total = 0, sub = '';
+  const labelEl = document.getElementById('agendaTotalLabel');
+  const subEl = document.getElementById('agendaTotalSub');
+
+  if (_agendaPeriodo === 'dia'){
+    const doDia = horariosFiltrados.filter(h => h.dia_semana === _agendaDiaSelecionado);
+    doDia.forEach(h => { const p = _pacientesCache.find(x=>x.id===h.paciente_id); if (p) total += Number(p.valor_sessao||0); });
+    labelEl.textContent = 'Total de ' + DIAS_LABEL[_agendaDiaSelecionado];
+    sub = doDia.length + ' atendimento(s) previsto(s)';
+  } else if (_agendaPeriodo === 'semana'){
+    horariosFiltrados.forEach(h => { const p = _pacientesCache.find(x=>x.id===h.paciente_id); if (p) total += Number(p.valor_sessao||0); });
+    labelEl.textContent = 'Total da semana';
+    sub = horariosFiltrados.length + ' atendimento(s) previsto(s) na semana';
+  } else { // mês
+    [1,2,3,4,5].forEach(dia => {
+      const vezesNoMes = contarDiasNoMes(segunda, dia);
+      horariosFiltrados.filter(h => h.dia_semana === dia).forEach(h => {
+        const p = _pacientesCache.find(x=>x.id===h.paciente_id);
+        if (p) total += Number(p.valor_sessao||0) * vezesNoMes;
+      });
+    });
+    labelEl.textContent = 'Total do mês';
+    const nomeMes = segunda.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    sub = 'Projeção pra ' + nomeMes + ' (baseado nos horários fixos)';
+  }
+  document.getElementById('agendaTotalValor').textContent = fmtReais(total);
+  subEl.textContent = sub + (filtroPaciente ? ' · filtrado por paciente' : '');
+}
+
+function abrirModalHorario(){
+  const sel = document.getElementById('mhPaciente');
+  sel.innerHTML = _pacientesCache.map(p => `<option value="${p.id}">${p.nome_crianca}</option>`).join('');
+  if (!_pacientesCache.length) { toast('⚠️ Cadastra um paciente primeiro'); return; }
+  abrirModal('modalHorario');
+}
+
+async function salvarHorario(){
+  const pacienteId = document.getElementById('mhPaciente').value;
+  const dia = Number(document.getElementById('mhDia').value);
+  const horario = document.getElementById('mhHorario').value;
+  if (!pacienteId || !horario) { toast('⚠️ Preenche tudo'); return; }
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_horarios`, {
+    method:'POST', headers,
+    body: JSON.stringify({ paciente_id: pacienteId, user_id: S.user.id, dia_semana: dia, horario })
+  });
+  if (!res.ok) { toast('❌ Não consegui salvar'); return; }
+  fecharModal('modalHorario');
+  toast('✅ Horário adicionado!');
+  carregarHorarios();
 }
 
 function mpSelecionarCobranca(tipo){
