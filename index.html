@@ -293,7 +293,7 @@ input,textarea,select{font-family:inherit;font-size:14px}
         <div class="stat-card red"><div class="lbl">Despesas</div><div class="val" id="finGastos">R$ 0,00</div></div>
         <div class="stat-card"><div class="lbl">Saldo</div><div class="val" id="finSaldo">R$ 0,00</div></div>
       </div>
-      <div style="background:var(--white);border:1px solid var(--border);border-radius:18px;padding:6px 18px">
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:18px;padding:6px 18px;overflow-x:auto">
         <div id="financeiroLancsList"><div class="empty">Carregando...</div></div>
       </div>
     </div>
@@ -634,28 +634,35 @@ function contarDiasNoMes(anoMes, diaSemanaAlvo){
   return contagem;
 }
 
-function renderAgenda(){
+async function renderAgenda(){
   if (!_horariosCache) return;
   const segunda = agendaSegundaDaSemana(_agendaOffsetSemana);
   const sexta = new Date(segunda); sexta.setDate(segunda.getDate()+4);
   const fmtCurto = d => d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+  const fmtISO = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   document.getElementById('agendaSemanaLabel').textContent = fmtCurto(segunda) + ' – ' + fmtCurto(sexta);
 
   const filtroPaciente = document.getElementById('agendaFiltroPaciente').value;
   const horariosFiltrados = filtroPaciente ? _horariosCache.filter(h => h.paciente_id === filtroPaciente) : _horariosCache;
 
-  // Se o dia selecionado ainda não foi definido, tenta usar hoje (se cair
-  // dentro da semana exibida e for dia útil), senão cai na segunda
   if (_agendaDiaSelecionado === null){
     const hoje = new Date(); hoje.setHours(0,0,0,0);
     const diffDias = Math.round((hoje - segunda) / 86400000);
     _agendaDiaSelecionado = (diffDias >= 0 && diffDias <= 4) ? diffDias+1 : 1;
   }
 
+  // Busca os atendimentos já lançados nessa semana (pra saber quais dias
+  // já foram marcados como compareceu/faltou/remarcado) e também os que
+  // foram remarcados PRA essa semana (data_original pode ser de outra semana)
+  const headers = await authHeaders();
+  const resSemana = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?user_id=eq.${S.user.id}&data_atendimento=gte.${fmtISO(segunda)}T00:00:00&data_atendimento=lte.${fmtISO(sexta)}T23:59:59&select=id,paciente_id,data_atendimento,presenca,remarcacao`, {headers});
+  const atendsSemana = resSemana.ok ? await resSemana.json() : [];
+
   // ── Grid Seg-Sex ──
   const grid = document.getElementById('agendaGrid');
   grid.innerHTML = [1,2,3,4,5].map(dia => {
     const dataDoDia = new Date(segunda); dataDoDia.setDate(segunda.getDate() + (dia-1));
+    const dataDoDiaISO = fmtISO(dataDoDia);
     const horariosDoDia = horariosFiltrados.filter(h => h.dia_semana === dia).sort((a,b)=>a.horario.localeCompare(b.horario));
     const selecionado = _agendaPeriodo==='dia' && _agendaDiaSelecionado===dia;
     const cards = horariosDoDia.map(h => {
@@ -663,11 +670,31 @@ function renderAgenda(){
       if (!pac) return '';
       const cor = corDoPaciente(pac.id);
       const prof = h.profissional_id ? _equipeCache.find(p => p.id === h.profissional_id) : null;
+
+      // Já existe atendimento lançado pra esse paciente, nessa data específica?
+      const jaLancado = atendsSemana.find(a => a.paciente_id === pac.id && (a.data_atendimento||'').slice(0,10) === dataDoDiaISO);
+
+      let statusHtml;
+      if (jaLancado){
+        if (jaLancado.presenca === 'faltou'){
+          statusHtml = `<div style="font-size:10.5px;font-weight:800;color:var(--red)">❌ Faltou</div>`;
+        } else {
+          statusHtml = `<div style="font-size:10.5px;font-weight:800;color:var(--sage-deep)">✅ Compareceu</div>`;
+        }
+      } else {
+        statusHtml = `<div style="display:flex;gap:4px;margin-top:6px" onclick="event.stopPropagation()">
+          <button onclick="agendaAcaoCard('${h.id}','${dataDoDiaISO}','compareceu')" title="Compareceu" style="flex:1;background:var(--sage-pale);border:none;border-radius:6px;padding:5px 2px;font-size:13px;cursor:pointer">✅</button>
+          <button onclick="agendaAcaoCard('${h.id}','${dataDoDiaISO}','faltou')" title="Faltou" style="flex:1;background:#FBE3DE;border:none;border-radius:6px;padding:5px 2px;font-size:13px;cursor:pointer">❌</button>
+          <button onclick="agendaAbrirReagendar('${h.id}','${dataDoDiaISO}')" title="Reagendar" style="flex:1;background:var(--clay-pale);border:none;border-radius:6px;padding:5px 2px;font-size:13px;cursor:pointer">🔁</button>
+        </div>`;
+      }
+
       return `<div style="background:${cor}18;border-left:3px solid ${cor};border-radius:8px;padding:8px 10px;margin-bottom:6px">
         <div style="font-size:11px;font-weight:800;color:${cor}">${h.horario}</div>
         <div style="font-size:12.5px;font-weight:700;color:var(--ink)">${pac.nome_crianca}</div>
         ${prof ? `<div style="font-size:10px;color:var(--ink-soft)">👤 ${prof.nome}</div>` : ''}
         <div style="font-size:10px;color:var(--ink-soft)">${pac.tipo_cobranca==='avulso' ? '🔹 avulso' : '📦 pacote'}</div>
+        ${statusHtml}
       </div>`;
     }).join('') || '<div style="font-size:11px;color:var(--ink-soft);text-align:center;padding:14px 4px">—</div>';
 
@@ -735,22 +762,50 @@ async function renderEquipe(){
   const headers = await authHeaders();
   const hoje = new Date();
   const inicioMes = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-01';
+  const DIAS_SEMANA_NOME = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 
   const linhas = await Promise.all(_equipeCache.map(async prof => {
-    const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?user_id=eq.${S.user.id}&profissional_id=eq.${prof.id}&data_atendimento=gte.${inicioMes}&select=id`, {headers});
+    const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?user_id=eq.${S.user.id}&profissional_id=eq.${prof.id}&data_atendimento=gte.${inicioMes}&select=id,data_atendimento,presenca`, {headers});
     const atends = res.ok ? await res.json() : [];
-    const qtd = atends.length;
+    const compareceram = atends.filter(a => a.presenca !== 'faltou');
+    const qtd = compareceram.length;
     const total = qtd * Number(prof.valor_por_atendimento||0);
-    return `<div class="pac-card" onclick="abrirModalProfissional(${JSON.stringify(prof).replace(/"/g,'&quot;')})">
+
+    // Dia da semana com mais atendimentos esse mês
+    const contagemDia = {};
+    compareceram.forEach(a => {
+      const dia = DIAS_SEMANA_NOME[new Date(a.data_atendimento).getDay()];
+      contagemDia[dia] = (contagemDia[dia]||0) + 1;
+    });
+    const diaTop = Object.keys(contagemDia).sort((a,b) => contagemDia[b]-contagemDia[a])[0];
+
+    return `<div class="pac-card" style="cursor:default">
       <div class="pac-avatar" style="background:linear-gradient(135deg,var(--sage),var(--sage-deep))">${(prof.nome[0]||'?').toUpperCase()}</div>
       <div class="pac-info">
         <div class="nome">${prof.nome}</div>
         <div class="resp">${qtd} atendimento(s) este mês · ${fmtReais(prof.valor_por_atendimento)}/atend.</div>
+        ${diaTop ? `<div style="font-size:11px;color:var(--sage-deep);font-weight:700;margin-top:2px">📌 Dia com mais atendimento: ${diaTop}</div>` : ''}
       </div>
-      <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--sage-deep)">${fmtReais(total)}</div>
+      <div style="text-align:right">
+        <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--sage-deep)">${fmtReais(total)}</div>
+        <div style="font-size:10px;color:var(--ink-soft)">a pagar este mês</div>
+        <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end">
+          <button onclick="event.stopPropagation();abrirModalProfissional(${JSON.stringify(prof).replace(/"/g,'&quot;')})" style="background:none;border:none;font-size:15px;cursor:pointer">✏️</button>
+          <button onclick="event.stopPropagation();excluirProfissional('${prof.id}')" style="background:none;border:none;font-size:15px;cursor:pointer">🗑️</button>
+        </div>
+      </div>
     </div>`;
   }));
   el.innerHTML = linhas.join('');
+}
+
+async function excluirProfissional(id){
+  if (!confirm('Remover esse profissional da equipe? O histórico de atendimentos ligados a ele continua guardado.')) return;
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify({ativo:false})});
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro: '+corpo); return; }
+  toast('🗑️ Profissional removido');
+  carregarEquipe();
 }
 
 function abrirModalProfissional(prof){
@@ -777,6 +832,44 @@ async function salvarProfissional(){
   fecharModal('modalProfissional');
   toast('✅ Profissional salvo!');
   carregarEquipe();
+}
+
+// Ação rápida direto no card da Agenda — Compareceu ou Faltou
+async function agendaAcaoCard(horarioId, dataISO, tipo){
+  const h = _horariosCache.find(x => x.id === horarioId);
+  if (!h) return;
+  const pac = _pacientesCache.find(p => p.id === h.paciente_id);
+  if (!pac) return;
+  const headers = await authHeaders();
+  const valor = tipo === 'compareceu' ? Number(pac.valor_sessao||0) : 0;
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos`, {
+    method:'POST', headers,
+    body: JSON.stringify({
+      paciente_id: pac.id, user_id: S.user.id,
+      data_atendimento: dataISO + 'T' + h.horario + ':00',
+      profissional_id: h.profissional_id || null,
+      valor, presenca: tipo, status_pagamento: 'pendente'
+    })
+  });
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro: '+corpo); return; }
+  toast(tipo === 'compareceu' ? '✅ Marcado como compareceu!' : '❌ Marcado como faltou');
+  renderAgenda();
+  carregarFinanceiro();
+}
+
+// Reagendar — abre o modal de atendimento já com "remarcação" marcado e a
+// data original preenchida, pra pessoa só escolher a nova data/horário
+function agendaAbrirReagendar(horarioId, dataISO){
+  const h = _horariosCache.find(x => x.id === horarioId);
+  if (!h) return;
+  const pac = _pacientesCache.find(p => p.id === h.paciente_id);
+  if (!pac) return;
+  _pacienteAtual = pac;
+  abrirModalAtendimento();
+  document.getElementById('maProfissional').value = h.profissional_id || '';
+  document.getElementById('maRemarcacao').checked = true;
+  document.getElementById('maDataOriginal').value = dataISO;
+  toggleRemarcacaoBox();
 }
 
 function abrirModalHorario(){
@@ -1086,18 +1179,34 @@ async function carregarFinanceiro(){
   document.getElementById('finSaldo').textContent = fmtReais(receitas - gastos);
   document.getElementById('statSaldo').textContent = fmtReais(receitas - gastos);
 
-  const html = lancs.length ? lancs.slice(0,80).map(l => {
-    const desc = dec(l.descricao, S.user.id);
-    const cat = dec(l.cat, S.user.id);
-    const dataFmt = new Date(l.data + 'T12:00:00').toLocaleDateString('pt-BR');
-    return `<div class="lanc-row">
-      <div class="lanc-icon ${l.tipo}">${l.tipo==='receita'?'💰':'🧾'}</div>
-      <div class="lanc-body"><div class="desc">${desc}</div><div class="meta">${cat||''} · ${dataFmt}</div></div>
-      <div class="lanc-val ${l.tipo}">${l.tipo==='receita'?'+':'−'} ${fmtReais(l.valor)}</div>
-    </div>`;
-  }).join('') : '<div class="empty">Nenhum lançamento este mês</div>';
-  document.getElementById('financeiroLancsList').innerHTML = html;
-  // Card do Início mostra só os 5 lançamentos mais recentes
+  const htmlTabela = lancs.length ? `
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border)">
+          <th style="text-align:left;padding:10px 8px;font-size:10.5px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px">Data</th>
+          <th style="text-align:left;padding:10px 8px;font-size:10.5px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px">O que é</th>
+          <th style="text-align:left;padding:10px 8px;font-size:10.5px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px">Categoria</th>
+          <th style="text-align:right;padding:10px 8px;font-size:10.5px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px">Valor</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${lancs.slice(0,120).map(l => {
+          const desc = dec(l.descricao, S.user.id);
+          const cat = dec(l.cat, S.user.id);
+          const dataFmt = new Date(l.data + 'T12:00:00').toLocaleDateString('pt-BR');
+          const corLinha = l.tipo==='receita' ? 'var(--sage-pale)' : '#FBE3DE';
+          return `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:11px 8px;font-size:12.5px;color:var(--ink-soft);white-space:nowrap">${dataFmt}</td>
+            <td style="padding:11px 8px;font-size:13px;font-weight:600">${l.tipo==='receita'?'💰':'🧾'} ${desc}</td>
+            <td style="padding:11px 8px"><span style="background:${corLinha};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:var(--ink)">${cat||'—'}</span></td>
+            <td style="padding:11px 8px;text-align:right;font-weight:700;font-size:13px;color:${l.tipo==='receita'?'var(--sage-deep)':'var(--red)'}">${l.tipo==='receita'?'+':'−'} ${fmtReais(l.valor)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  ` : '<div class="empty">Nenhum lançamento este mês</div>';
+  document.getElementById('financeiroLancsList').innerHTML = htmlTabela;
+  // Card do Início mostra só os 5 lançamentos mais recentes (lista simples)
   const top5 = lancs.slice(0,5).map(l => {
     const desc = dec(l.descricao, S.user.id);
     const cat = dec(l.cat, S.user.id);
