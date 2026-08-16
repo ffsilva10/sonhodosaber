@@ -773,7 +773,7 @@ async function salvarProfissional(){
   } else {
     res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe`, {method:'POST', headers, body: JSON.stringify({nome, valor_por_atendimento: valor, user_id: S.user.id})});
   }
-  if (!res.ok) { toast('❌ Não consegui salvar'); return; }
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro (HTTP '+res.status+'): '+corpo); return; }
   fecharModal('modalProfissional');
   toast('✅ Profissional salvo!');
   carregarEquipe();
@@ -808,7 +808,7 @@ async function salvarHorario(){
     method:'POST', headers,
     body: JSON.stringify({ paciente_id: pacienteId, user_id: S.user.id, dia_semana: dia, horario, profissional_id: profissionalId })
   });
-  if (!res.ok) { toast('❌ Não consegui salvar'); return; }
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro (HTTP '+res.status+'): '+corpo); return; }
   fecharModal('modalHorario');
   toast('✅ Horário adicionado!');
   carregarHorarios();
@@ -853,7 +853,7 @@ async function salvarPaciente(){
     body.user_id = S.user.id;
     res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pacientes`, {method:'POST', headers, body: JSON.stringify(body)});
   }
-  if (!res.ok) { toast('❌ Não consegui salvar'); return; }
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro (HTTP '+res.status+'): '+corpo); return; }
   fecharModal('modalPaciente');
   toast('✅ Paciente salvo!');
   carregarPacientes();
@@ -1018,7 +1018,7 @@ async function salvarAtendimento(){
     res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos`, {method:'POST', headers, body: JSON.stringify(corpo)});
   }
   btn.disabled = false; btn.textContent = 'Salvar';
-  if (!res.ok) { toast('❌ Não consegui salvar'); return; }
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro (HTTP '+res.status+'): '+corpo); return; }
   fecharModal('modalAtendimento');
   toast(erroFoto ? '⚠️ Salvo, mas a foto falhou: ' + erroFoto : '✅ Atendimento salvo!');
   carregarAtendimentos(_pacienteAtual.id);
