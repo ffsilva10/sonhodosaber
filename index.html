@@ -225,6 +225,14 @@ input,textarea,select{font-family:inherit;font-size:14px}
       </div>
 
       <div style="background:var(--white);border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:18px">
+        <div class="section-head" style="margin-bottom:12px">
+          <h2 style="font-size:15px">📌 Contas a vencer</h2>
+          <button class="btn-add" onclick="abrirModalContaFixa()" style="padding:8px 14px;font-size:12px">+ Nova conta</button>
+        </div>
+        <div id="contasFixasList" style="display:flex;flex-direction:column;gap:8px"><div class="empty" style="padding:16px">Carregando...</div></div>
+      </div>
+
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:18px">
         <div style="font-weight:700;font-size:14px;margin-bottom:10px">📷 Lançar despesa por foto</div>
         <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5">Tira foto de um boleto (condomínio, luz, água) e o valor entra sozinho — a mesma foto também pode ser mandada direto pro WhatsApp da clínica.</div>
         <input type="file" id="comprovanteInput" accept="image/*" style="display:none" onchange="processarComprovante(this)">
@@ -361,7 +369,10 @@ input,textarea,select{font-family:inherit;font-size:14px}
     <input type="hidden" id="mapPacienteId">
     <div id="mapPacienteNome" style="font-weight:700;font-size:16px;margin-bottom:14px;color:var(--sage-deep)"></div>
     <div class="field"><label>Data e horário</label><input id="mapData" type="datetime-local"></div>
-    <div class="field"><label>Indicadores / observações</label><textarea id="mapIndicadores" rows="3" placeholder="Como foi o atendimento..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream);resize:vertical;font-family:inherit"></textarea></div>
+    <div class="field"><label>Indicadores / observações</label><textarea id="mapIndicadores" rows="3" placeholder="Como foi o atendimento..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream);resize:vertical;font-family:inherit"></textarea>
+      <button type="button" id="mapBtnMic" onclick="toggleGravacaoVoz()" style="margin-top:8px;width:100%;background:var(--clay-pale);border:1.5px solid var(--clay);border-radius:10px;padding:10px;color:#A85C2E;font-size:12.5px;font-weight:700;cursor:pointer">🎤 Falar em vez de digitar</button>
+      <div id="mapVozAviso" style="display:none;font-size:11px;color:var(--ink-soft);margin-top:6px"></div>
+    </div>
     <div class="field"><label>Foto do atendimento</label>
       <input type="file" id="mapFotoInput" accept="image/*" style="display:none" onchange="prevFotoProf(this)">
       <div class="photo-drop" id="mapFotoBox" onclick="document.getElementById('mapFotoInput').click()">📷 Toque pra escolher — Câmera ou Galeria</div>
@@ -532,6 +543,29 @@ input,textarea,select{font-family:inherit;font-size:14px}
   </div>
 </div>
 
+<!-- MODAL: CONTA A VENCER -->
+<div class="modal-bg" id="modalContaFixa">
+  <div class="modal">
+    <h3>Nova Conta a Vencer</h3>
+    <div class="sub">Boletos e contas ainda não pagas — pra não perder o prazo</div>
+    <input type="hidden" id="mcfId">
+    <div class="field"><label>Descrição</label><input id="mcfDescricao" placeholder="Ex: Aluguel da sala"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field"><label>Valor (R$)</label><input id="mcfValor" type="number" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Vencimento</label><input id="mcfVencimento" type="date"></div>
+    </div>
+    <div class="field"><label>Categoria</label>
+      <select id="mcfCategoria" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream)">
+        <option>Contas fixas</option><option>Aluguel</option><option>Material</option><option>Outros</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="fecharModal('modalContaFixa')">Cancelar</button>
+      <button class="btn-save" onclick="salvarContaFixa()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: DESPESA MANUAL -->
 <div class="modal-bg" id="modalDespesa">
   <div class="modal">
@@ -697,7 +731,93 @@ async function authHeaders(){
 async function carregarTudo(){
   await carregarPacientes();
   await carregarEquipe();
-  await Promise.all([carregarFinanceiro(), carregarHorarios(), carregarValidacao()]);
+  await Promise.all([carregarFinanceiro(), carregarHorarios(), carregarValidacao(), carregarContasFixas()]);
+}
+
+// ── CONTAS A VENCER ───────────────────────────────────────────
+async function carregarContasFixas(){
+  const el = document.getElementById('contasFixasList');
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_contas_fixas?user_id=eq.${S.user.id}&status=eq.pendente&order=data_vencimento.asc`, {headers});
+  const contas = res.ok ? await res.json() : [];
+  if (!contas.length) { el.innerHTML = '<div class="empty" style="padding:16px">Nenhuma conta pendente 🎉</div>'; return; }
+
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  el.innerHTML = contas.map(c => {
+    const venc = new Date(c.data_vencimento + 'T12:00:00');
+    const diffDias = Math.round((venc - hoje) / 86400000);
+    let corBorda = 'var(--border)', corTxt = 'var(--ink-soft)', avisoTxt = venc.toLocaleDateString('pt-BR');
+    if (diffDias < 0) { corBorda = 'var(--red)'; corTxt = 'var(--red)'; avisoTxt = 'Venceu em ' + venc.toLocaleDateString('pt-BR'); }
+    else if (diffDias === 0) { corBorda = 'var(--clay)'; corTxt = '#A85C2E'; avisoTxt = 'Vence hoje'; }
+    else if (diffDias <= 3) { corBorda = 'var(--clay)'; corTxt = '#A85C2E'; avisoTxt = 'Vence em ' + diffDias + ' dia(s) — ' + venc.toLocaleDateString('pt-BR'); }
+
+    return `<div style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--cream);border-left:3px solid ${corBorda};border-radius:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">${c.descricao}</div>
+        <div style="font-size:11px;color:${corTxt};font-weight:700">${avisoTxt}</div>
+      </div>
+      <div style="font-weight:800;font-size:14px;color:var(--ink)">${fmtReais(c.valor)}</div>
+      <button onclick="marcarContaPaga('${c.id}')" title="Marcar como paga" style="background:var(--sage-pale);border:none;border-radius:8px;padding:6px 10px;color:var(--sage-deep);font-size:11px;font-weight:800;cursor:pointer">✅ Pagar</button>
+      <button onclick="excluirContaFixa('${c.id}')" style="background:none;border:none;font-size:14px;cursor:pointer">🗑️</button>
+    </div>`;
+  }).join('');
+}
+
+function abrirModalContaFixa(){
+  document.getElementById('mcfId').value = '';
+  document.getElementById('mcfDescricao').value = '';
+  document.getElementById('mcfValor').value = '';
+  document.getElementById('mcfVencimento').value = '';
+  abrirModal('modalContaFixa');
+}
+
+async function salvarContaFixa(){
+  const descricao = document.getElementById('mcfDescricao').value.trim();
+  const valor = Number(document.getElementById('mcfValor').value);
+  const vencimento = document.getElementById('mcfVencimento').value;
+  if (!descricao || !valor || !vencimento) { toast('⚠️ Preenche descrição, valor e vencimento'); return; }
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_contas_fixas`, {
+    method:'POST', headers,
+    body: JSON.stringify({ user_id: S.user.id, descricao, valor, data_vencimento: vencimento, categoria: document.getElementById('mcfCategoria').value })
+  });
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro: '+corpo); return; }
+  fecharModal('modalContaFixa');
+  toast('✅ Conta cadastrada!');
+  carregarContasFixas();
+}
+
+async function marcarContaPaga(id){
+  const headers = await authHeaders();
+  const resConta = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_contas_fixas?id=eq.${id}`, {headers});
+  const arr = resConta.ok ? await resConta.json() : [];
+  if (!arr.length) return;
+  const conta = arr[0];
+
+  const resLanc = await fetch(`${SUPA_URL}/rest/v1/fp_lancs`, {
+    method:'POST', headers: {...headers, 'Prefer':'return=representation'},
+    body: JSON.stringify({
+      user_id: S.user.id, descricao: enc(conta.descricao, S.user.id), valor: Number(conta.valor)||0,
+      tipo:'gasto', data: new Date().toISOString().slice(0,10),
+      cat: enc(conta.categoria || 'Contas fixas', S.user.id), parcelas:1, parcela_atual:1
+    })
+  });
+  const lancCriado = resLanc.ok ? (await resLanc.json())[0] : null;
+
+  await fetch(`${SUPA_URL}/rest/v1/fp_clinica_contas_fixas?id=eq.${id}`, {
+    method:'PATCH', headers, body: JSON.stringify({status:'pago', lanc_id: lancCriado?lancCriado.id:null})
+  });
+  toast('✅ Paga — já entrou no financeiro!');
+  carregarContasFixas();
+  carregarFinanceiro();
+}
+
+async function excluirContaFixa(id){
+  if (!confirm('Excluir essa conta?')) return;
+  const headers = await authHeaders();
+  await fetch(`${SUPA_URL}/rest/v1/fp_clinica_contas_fixas?id=eq.${id}`, {method:'DELETE', headers});
+  toast('🗑️ Excluída');
+  carregarContasFixas();
 }
 
 // ── PACIENTES ──
@@ -1216,6 +1336,7 @@ function abrirModalAtendimentoProf(horarioId, dataISO){
   document.getElementById('mapFotoBox').innerHTML = '📷 Toque pra escolher — Câmera ou Galeria';
   document.getElementById('mapRecusaAviso').style.display = 'none';
   document.getElementById('mapBtnSalvar').textContent = 'Enviar pra validação';
+  resetarBotaoMic();
   abrirModal('modalAtendimentoProf');
 }
 
@@ -1252,7 +1373,63 @@ async function abrirAtendimentoProfExistente(atendimentoId){
       if (data && data.signedUrl) document.getElementById('mapFotoBox').innerHTML = `<img src="${data.signedUrl}" style="width:100%;height:100%;object-fit:cover">`;
     } catch(e) {}
   }
+  resetarBotaoMic();
   abrirModal('modalAtendimentoProf');
+}
+
+function resetarBotaoMic(){
+  if (_recognitionAtivo) { try { _recognitionAtivo.stop(); } catch(e) {} _recognitionAtivo = null; }
+  const btn = document.getElementById('mapBtnMic');
+  const aviso = document.getElementById('mapVozAviso');
+  if (btn) { btn.textContent = '🎤 Falar em vez de digitar'; btn.style.background = 'var(--clay-pale)'; }
+  if (aviso) { aviso.style.display = 'none'; }
+}
+
+// ── TRANSCRIÇÃO POR VOZ (Web Speech API do navegador, sem custo) ──
+let _recognitionAtivo = null;
+function toggleGravacaoVoz(){
+  const btn = document.getElementById('mapBtnMic');
+  const aviso = document.getElementById('mapVozAviso');
+  if (_recognitionAtivo) { _recognitionAtivo.stop(); return; }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    toast('⚠️ Esse navegador não suporta gravação por voz. Digita normalmente.');
+    return;
+  }
+  const rec = new SpeechRecognition();
+  rec.lang = 'pt-BR';
+  rec.continuous = true;
+  rec.interimResults = true;
+  const textarea = document.getElementById('mapIndicadores');
+  const textoBase = textarea.value.trim() ? textarea.value.trim() + ' ' : '';
+  let textoFinal = '';
+
+  rec.onstart = () => {
+    btn.textContent = '🔴 Gravando... toque pra parar';
+    btn.style.background = '#FBE3DE';
+    aviso.style.display = 'block';
+    aviso.textContent = 'Fala normalmente sobre o atendimento — o texto vai aparecendo acima.';
+  };
+  rec.onresult = (event) => {
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) textoFinal += transcript + ' ';
+      else interim += transcript;
+    }
+    textarea.value = textoBase + textoFinal + interim;
+  };
+  rec.onerror = () => { toast('⚠️ Não consegui ouvir direito, tenta de novo.'); };
+  rec.onend = () => {
+    btn.textContent = '🎤 Falar em vez de digitar';
+    btn.style.background = 'var(--clay-pale)';
+    aviso.textContent = 'Pronto — revisa o texto acima e corrige o que precisar antes de enviar.';
+    _recognitionAtivo = null;
+  };
+
+  rec.start();
+  _recognitionAtivo = rec;
 }
 
 function prevFotoProf(input){
