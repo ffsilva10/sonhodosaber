@@ -179,6 +179,19 @@ input,textarea,select{font-family:inherit;font-size:14px}
   </div>
 </div>
 
+<!-- CONVITE — profissional cria o próprio acesso a partir de um link -->
+<div id="conviteScreen" style="display:none">
+  <div class="login-card" style="max-width:420px">
+    <div class="login-mark">🌱</div>
+    <div class="login-title">Criar meu acesso</div>
+    <div class="login-sub" id="conviteSub">Sonho do Saber</div>
+    <div class="field"><label>Seu e-mail</label><input type="email" id="conviteEmail" placeholder="seu@email.com" inputmode="email"></div>
+    <div class="field"><label>Crie uma senha</label><input type="password" id="convitePass" placeholder="Mínimo 6 caracteres"></div>
+    <button class="btn-primary" id="conviteBtn" onclick="criarAcessoConvite()">Criar acesso e entrar</button>
+    <div id="conviteMsg" style="font-size:12.5px;color:#C1594A;margin-top:10px;min-height:16px"></div>
+  </div>
+</div>
+
 <!-- APP -->
 <div id="app">
   <div class="topbar">
@@ -193,11 +206,12 @@ input,textarea,select{font-family:inherit;font-size:14px}
   </div>
 
   <div class="main">
-    <div class="nav-tabs" style="max-width:720px">
+    <div class="nav-tabs" style="max-width:900px">
       <button class="nav-tab active" data-page="inicio" onclick="irPagina('inicio')">🏠 Início</button>
       <button class="nav-tab" data-page="pacientes" onclick="irPagina('pacientes')">🧒 Pacientes</button>
       <button class="nav-tab" data-page="agenda" onclick="irPagina('agenda')">📅 Agenda</button>
       <button class="nav-tab" data-page="equipe" onclick="irPagina('equipe')">👥 Equipe</button>
+      <button class="nav-tab" data-page="validacao" onclick="irPagina('validacao')">🔔 Validação <span id="validacaoBadge" style="display:none;background:#C1594A;color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;margin-left:4px">0</span></button>
       <button class="nav-tab" data-page="financeiro" onclick="irPagina('financeiro')">💰 Financeiro</button>
     </div>
 
@@ -273,6 +287,15 @@ input,textarea,select{font-family:inherit;font-size:14px}
       <div class="card-list" id="equipeList"><div class="empty">Carregando...</div></div>
     </div>
 
+    <!-- VALIDAÇÃO -->
+    <div class="page" id="page-validacao">
+      <div class="section-head">
+        <h2>Validação de Atendimentos</h2>
+      </div>
+      <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:16px">Atendimentos registrados pelos profissionais, aguardando conferência antes de contar como cobrança e pagamento.</div>
+      <div class="card-list" id="validacaoList"><div class="empty">Carregando...</div></div>
+    </div>
+
     <!-- PACIENTES -->
     <div class="page" id="page-pacientes">
       <div class="section-head">
@@ -298,6 +321,57 @@ input,textarea,select{font-family:inherit;font-size:14px}
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- APP PROFISSIONAL (acesso restrito) -->
+<div id="appProfissional" style="display:none">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="mark">🌱</div>
+      <div class="name">Sonho do <span>Saber</span></div>
+    </div>
+    <div class="topbar-actions">
+      <span id="userLabel2" style="font-size:12.5px;color:var(--ink-soft)"></span>
+      <button class="btn-ghost" onclick="sair()">Sair</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="section-head">
+      <h2>Minha Semana</h2>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn-ghost" onclick="profMudarSemana(-1)">‹</button>
+        <div id="profSemanaLabel" style="font-weight:700;font-size:13px;min-width:120px;text-align:center"></div>
+        <button class="btn-ghost" onclick="profMudarSemana(1)">›</button>
+      </div>
+    </div>
+    <div id="profAgendaGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:30px"></div>
+
+    <div class="section-head"><h2>Meus Atendimentos</h2></div>
+    <div class="card-list" id="profAtendimentosList"><div class="empty">Carregando...</div></div>
+  </div>
+</div>
+
+<!-- MODAL: REGISTRAR ATENDIMENTO (profissional) -->
+<div class="modal-bg" id="modalAtendimentoProf">
+  <div class="modal">
+    <h3 id="mapTitulo">Registrar Atendimento</h3>
+    <div class="sub">Sua foto e observações vão para validação da clínica antes de contar como concluído.</div>
+    <input type="hidden" id="mapId">
+    <input type="hidden" id="mapPacienteId">
+    <div id="mapPacienteNome" style="font-weight:700;font-size:16px;margin-bottom:14px;color:var(--sage-deep)"></div>
+    <div class="field"><label>Data e horário</label><input id="mapData" type="datetime-local"></div>
+    <div class="field"><label>Indicadores / observações</label><textarea id="mapIndicadores" rows="3" placeholder="Como foi o atendimento..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream);resize:vertical;font-family:inherit"></textarea></div>
+    <div class="field"><label>Foto do atendimento</label>
+      <input type="file" id="mapFotoInput" accept="image/*" style="display:none" onchange="prevFotoProf(this)">
+      <div class="photo-drop" id="mapFotoBox" onclick="document.getElementById('mapFotoInput').click()">📷 Toque pra escolher — Câmera ou Galeria</div>
+    </div>
+    <div class="field"><label>Valor da sessão (R$)</label><input id="mapValor" type="number" step="0.01" placeholder="0,00"></div>
+    <div id="mapRecusaAviso" style="display:none;background:#FBE3DE;border:1px solid #F0C4B8;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#A8402F"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="fecharModal('modalAtendimentoProf')">Cancelar</button>
+      <button class="btn-save" id="mapBtnSalvar" onclick="salvarAtendimentoProf()">Enviar pra validação</button>
+    </div>
   </div>
 </div>
 
@@ -379,6 +453,33 @@ input,textarea,select{font-family:inherit;font-size:14px}
   </div>
 </div>
 
+<!-- MODAL: LINK DE CONVITE -->
+<div class="modal-bg" id="modalConvite">
+  <div class="modal">
+    <h3>Link de acesso</h3>
+    <div class="sub">Manda esse link pro profissional. Ele cria a própria senha e já entra vinculado à clínica.</div>
+    <div style="background:var(--cream);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12px;word-break:break-all;color:var(--ink);margin-bottom:14px" id="conviteLinkTexto"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="fecharModal('modalConvite')">Fechar</button>
+      <button class="btn-save" onclick="copiarLinkConvite()">Copiar link</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RECUSAR ATENDIMENTO -->
+<div class="modal-bg" id="modalRecusar">
+  <div class="modal">
+    <h3>Recusar Atendimento</h3>
+    <div class="sub">Explica o que precisa ser corrigido — o profissional vai ver esse aviso.</div>
+    <input type="hidden" id="mrAtendimentoId">
+    <div class="field"><label>Motivo</label><textarea id="mrMotivo" rows="3" placeholder="Ex: falta a foto do atendimento" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream);resize:vertical"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="fecharModal('modalRecusar')">Cancelar</button>
+      <button class="btn-save" onclick="confirmarRecusa()" style="background:linear-gradient(135deg,#C1594A,#A8402F)">Recusar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: PROFISSIONAL (EQUIPE) -->
 <div class="modal-bg" id="modalProfissional">
   <div class="modal">
@@ -387,6 +488,13 @@ input,textarea,select{font-family:inherit;font-size:14px}
     <input type="hidden" id="mprId">
     <div class="field"><label>Nome</label><input id="mprNome" placeholder="Ex: Joana"></div>
     <div class="field"><label>Valor combinado por atendimento (R$)</label><input id="mprValor" type="number" step="0.01" placeholder="0,00"></div>
+
+    <div id="mprAcessoBox" style="display:none;background:var(--cream);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">📱 Acesso do profissional</div>
+      <div id="mprAcessoStatus" style="font-size:12px;color:var(--ink-soft);margin-bottom:10px"></div>
+      <button type="button" id="mprBtnGerarCodigo" style="background:var(--sage);border:none;border-radius:10px;padding:9px 14px;color:#fff;font-size:12px;font-weight:700;cursor:pointer">Gerar link de acesso</button>
+    </div>
+
     <div class="modal-actions">
       <button class="btn-cancel" onclick="fecharModal('modalProfissional')">Cancelar</button>
       <button class="btn-save" onclick="salvarProfissional()">Salvar</button>
@@ -475,6 +583,8 @@ function fecharModal(id){ document.getElementById(id).classList.remove('open'); 
 function abrirModal(id){ document.getElementById(id).classList.add('open'); }
 
 // ── LOGIN ──
+let _souMembro = null; // null = admin, objeto = dados do vínculo profissional
+
 async function fazerLogin(){
   const email = document.getElementById('loginEmail').value.trim();
   const pass = document.getElementById('loginPass').value;
@@ -489,10 +599,7 @@ async function fazerLogin(){
     return;
   }
   S.user = data.user;
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  document.getElementById('userLabel').textContent = S.user.email;
-  await carregarTudo();
+  await entrarNoAppCerto();
 }
 
 async function sair(){
@@ -501,12 +608,76 @@ async function sair(){
 }
 
 async function checarSessao(){
+  // Se veio de um link de convite, trata isso primeiro (tela própria)
+  const params = new URLSearchParams(window.location.search);
+  const convite = params.get('convite');
+  if (convite) { await prepararTelaConvite(convite); return; }
+
   const { data } = await sb.auth.getSession();
   if (data.session) {
     S.user = data.session.user;
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
+    await entrarNoAppCerto();
+  }
+}
+
+let _conviteTokenAtual = null;
+
+async function prepararTelaConvite(token){
+  _conviteTokenAtual = token;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('conviteScreen').style.display = 'flex';
+}
+
+async function criarAcessoConvite(){
+  const email = document.getElementById('conviteEmail').value.trim();
+  const pass = document.getElementById('convitePass').value;
+  const msg = document.getElementById('conviteMsg');
+  const btn = document.getElementById('conviteBtn');
+  if (!email || !pass || pass.length < 6) { msg.textContent = 'Preenche e-mail e uma senha com pelo menos 6 caracteres.'; return; }
+  btn.disabled = true; btn.textContent = 'Criando...';
+
+  const { data, error } = await sb.auth.signUp({ email, password: pass });
+  if (error) {
+    msg.textContent = error.message.includes('already') ? 'Esse e-mail já tem conta — tenta entrar direto pela tela de login.' : error.message;
+    btn.disabled = false; btn.textContent = 'Criar acesso e entrar';
+    return;
+  }
+  S.user = data.user;
+
+  // Vincula esse novo login ao profissional dono do token do link
+  const headers = await authHeaders();
+  const resVinculo = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe?convite_token=eq.${_conviteTokenAtual}&auth_uid=is.null`, {
+    method: 'PATCH', headers, body: JSON.stringify({ auth_uid: S.user.id, convite_token: null })
+  });
+  if (!resVinculo.ok) {
+    msg.textContent = 'Não consegui vincular o acesso — o link pode já ter sido usado. Fala com a clínica pra gerar um novo.';
+    btn.disabled = false; btn.textContent = 'Criar acesso e entrar';
+    return;
+  }
+
+  document.getElementById('conviteScreen').style.display = 'none';
+  window.history.replaceState({}, '', window.location.pathname);
+  await entrarNoAppCerto();
+}
+
+// Decide se quem logou é a administração (chefe/Rafaela) ou um profissional
+// da equipe com acesso próprio — e mostra a tela certa pra cada um
+async function entrarNoAppCerto(){
+  document.getElementById('loginScreen').style.display = 'none';
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe?auth_uid=eq.${S.user.id}&select=*`, {headers});
+  const vinculo = res.ok ? await res.json() : [];
+
+  if (vinculo.length) {
+    _souMembro = vinculo[0];
+    document.getElementById('userLabel2').textContent = _souMembro.nome || S.user.email;
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('appProfissional').style.display = 'block';
+    await carregarAgendaProfissional();
+  } else {
+    _souMembro = null;
     document.getElementById('userLabel').textContent = S.user.email;
+    document.getElementById('app').style.display = 'block';
     await carregarTudo();
   }
 }
@@ -526,7 +697,7 @@ async function authHeaders(){
 async function carregarTudo(){
   await carregarPacientes();
   await carregarEquipe();
-  await Promise.all([carregarFinanceiro(), carregarHorarios()]);
+  await Promise.all([carregarFinanceiro(), carregarHorarios(), carregarValidacao()]);
 }
 
 // ── PACIENTES ──
@@ -555,8 +726,19 @@ function renderPacientes(){
         <div class="resp">${p.nome_responsavel || 'Sem responsável cadastrado'}</div>
       </div>
       <span class="badge ${p.tipo_cobranca}">${p.tipo_cobranca==='pacote'?'📦 Pacote':'🔹 Avulso'}</span>
+      <button onclick="event.stopPropagation();excluirPaciente('${p.id}','${p.nome_crianca.replace(/'/g,"\\'")}')" style="background:none;border:none;font-size:16px;cursor:pointer;margin-left:4px">🗑️</button>
     </div>
   `).join('');
+}
+
+async function excluirPaciente(id, nome){
+  if (!confirm(`Remover ${nome} da lista de pacientes? O histórico de atendimentos e a agenda dele continuam guardados, só saem da lista principal.`)) return;
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pacientes?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify({ativo:false})});
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro: '+corpo); return; }
+  toast('🗑️ Paciente removido');
+  carregarPacientes();
+  carregarHorarios();
 }
 
 // ── AGENDA / PROJEÇÃO ──────────────────────────────────────────
@@ -779,12 +961,18 @@ async function renderEquipe(){
     });
     const diaTop = Object.keys(contagemDia).sort((a,b) => contagemDia[b]-contagemDia[a])[0];
 
+    const temAcesso = !!prof.auth_uid;
+    const btnAcesso = temAcesso
+      ? '<span style="font-size:10px;color:var(--sage-deep);font-weight:800">✅ Acesso ativo</span>'
+      : `<button onclick="event.stopPropagation();gerarOuMostrarConvite('${prof.id}','${prof.convite_token||''}')" style="background:var(--clay-pale);border:none;color:#A85C2E;border-radius:8px;padding:4px 9px;font-size:10px;font-weight:700;cursor:pointer">🔗 Gerar acesso</button>`;
+
     return `<div class="pac-card" style="cursor:default">
       <div class="pac-avatar" style="background:linear-gradient(135deg,var(--sage),var(--sage-deep))">${(prof.nome[0]||'?').toUpperCase()}</div>
       <div class="pac-info">
         <div class="nome">${prof.nome}</div>
         <div class="resp">${qtd} atendimento(s) este mês · ${fmtReais(prof.valor_por_atendimento)}/atend.</div>
         ${diaTop ? `<div style="font-size:11px;color:var(--sage-deep);font-weight:700;margin-top:2px">📌 Dia com mais atendimento: ${diaTop}</div>` : ''}
+        <div style="margin-top:6px">${btnAcesso}</div>
       </div>
       <div style="text-align:right">
         <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--sage-deep)">${fmtReais(total)}</div>
@@ -808,11 +996,339 @@ async function excluirProfissional(id){
   carregarEquipe();
 }
 
+// ── CONVITE DE ACESSO (link pro profissional criar a própria conta) ──
+async function gerarOuMostrarConvite(profissionalId, tokenExistente){
+  let token = tokenExistente;
+  if (!token) {
+    token = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random())).replace(/-/g,'').slice(0,14);
+    const headers = await authHeaders();
+    const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe?id=eq.${profissionalId}`, {method:'PATCH', headers, body: JSON.stringify({convite_token: token})});
+    if (!res.ok) { toast('❌ Não consegui gerar o link'); return; }
+    carregarEquipe(); // atualiza o cache em segundo plano pra próxima abertura já vir com o token certo
+  }
+  mostrarLinkConvite(profissionalId, token);
+}
+function mostrarLinkConvite(profissionalId, token){
+  const link = window.location.origin + window.location.pathname + '?convite=' + token;
+  document.getElementById('conviteLinkTexto').textContent = link;
+  document.getElementById('conviteLinkTexto').dataset.link = link;
+  abrirModal('modalConvite');
+}
+function copiarLinkConvite(){
+  const link = document.getElementById('conviteLinkTexto').dataset.link;
+  navigator.clipboard.writeText(link).then(() => toast('✅ Link copiado!')).catch(() => toast('Copia manualmente: ' + link));
+}
+
+// ── VALIDAÇÃO DE ATENDIMENTOS ──
+async function carregarValidacao(){
+  const el = document.getElementById('validacaoList');
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?user_id=eq.${S.user.id}&status_validacao=eq.pendente&order=data_atendimento.desc`, {headers});
+  const pendentes = res.ok ? await res.json() : [];
+
+  const badge = document.getElementById('validacaoBadge');
+  if (pendentes.length) { badge.style.display = 'inline-block'; badge.textContent = pendentes.length; }
+  else { badge.style.display = 'none'; }
+
+  if (!pendentes.length) { el.innerHTML = '<div class="empty">Nenhum atendimento aguardando validação 🎉</div>'; return; }
+
+  const linhas = await Promise.all(pendentes.map(async a => {
+    const pac = _pacientesCache.find(p => p.id === a.paciente_id);
+    const prof = _equipeCache.find(p => p.id === a.profissional_id);
+    const dt = new Date(a.data_atendimento);
+    const dataFmt = dt.toLocaleDateString('pt-BR') + ' · ' + dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    let fotoHtml = '';
+    if (a.foto_path) {
+      try {
+        const {data} = await sb.storage.from('clinica-fotos').createSignedUrl(a.foto_path, 3600);
+        if (data && data.signedUrl) fotoHtml = `<img src="${data.signedUrl}" style="width:100%;height:160px;object-fit:cover;border-radius:16px 16px 0 0">`;
+      } catch(e){}
+    }
+    return `<div class="pac-card" style="flex-direction:column;align-items:stretch;padding:0;cursor:default">
+      ${fotoHtml}
+      <div style="padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-weight:700;font-size:14px">${pac ? pac.nome_crianca : '—'}</span>
+          <span class="badge pacote">⏳ Pendente</span>
+        </div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:4px">${dataFmt}${prof ? ' · registrado por ' + prof.nome : ''}</div>
+        ${a.indicadores ? `<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px">${a.indicadores}</div>` : ''}
+        <div style="font-weight:700;color:var(--sage-deep);margin-bottom:12px">${fmtReais(a.valor)}</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="abrirRecusarAtendimento('${a.id}')" style="flex:1;background:#FBE3DE;border:none;border-radius:10px;padding:10px;color:#C1594A;font-weight:700;font-size:12.5px;cursor:pointer">❌ Recusar</button>
+          <button onclick="aprovarAtendimento('${a.id}')" style="flex:1;background:linear-gradient(135deg,var(--sage),var(--sage-deep));border:none;border-radius:10px;padding:10px;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer">✅ Aprovar</button>
+        </div>
+      </div>
+    </div>`;
+  }));
+  el.innerHTML = linhas.join('');
+}
+
+async function aprovarAtendimento(id){
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify({status_validacao:'validado', motivo_recusa:null})});
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro: '+corpo); return; }
+  toast('✅ Atendimento validado!');
+  carregarValidacao();
+  carregarEquipe();
+}
+
+function abrirRecusarAtendimento(id){
+  document.getElementById('mrAtendimentoId').value = id;
+  document.getElementById('mrMotivo').value = '';
+  abrirModal('modalRecusar');
+}
+
+async function confirmarRecusa(){
+  const id = document.getElementById('mrAtendimentoId').value;
+  const motivo = document.getElementById('mrMotivo').value.trim();
+  if (!motivo) { toast('⚠️ Explica o motivo da recusa'); return; }
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify({status_validacao:'recusado', motivo_recusa: motivo})});
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro: '+corpo); return; }
+  fecharModal('modalRecusar');
+  toast('Atendimento recusado — o profissional vai ver o motivo');
+  carregarValidacao();
+}
+// ══════════════════════════════════════════════════════════════
+// ── ACESSO DO PROFISSIONAL (restrito) ──
+// ══════════════════════════════════════════════════════════════
+let _profOffsetSemana = 0;
+let _profFotoFile = null;
+let _profHorariosCache = [];
+let _profPacientesCache = [];
+let _profAtendimentosCache = [];
+const PROF_DIAS_CURTO = ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+
+function profSegundaDaSemana(offset){
+  const hoje = new Date();
+  const dia = hoje.getDay();
+  const dist = dia === 0 ? -6 : 1 - dia;
+  const seg = new Date(hoje);
+  seg.setDate(hoje.getDate() + dist + (offset*7));
+  seg.setHours(0,0,0,0);
+  return seg;
+}
+function profMudarSemana(delta){ _profOffsetSemana += delta; renderAgendaProfissional(); }
+
+async function carregarAgendaProfissional(){
+  document.getElementById('userLabel2').textContent = _souMembro?.nome || S.user.email;
+  const headers = await authHeaders();
+  const [resHor, resPac] = await Promise.all([
+    fetch(`${SUPA_URL}/rest/v1/fp_clinica_horarios?ativo=eq.true&order=horario.asc`, {headers}),
+    fetch(`${SUPA_URL}/rest/v1/fp_clinica_pacientes?ativo=eq.true`, {headers})
+  ]);
+  _profHorariosCache = resHor.ok ? await resHor.json() : [];
+  _profPacientesCache = resPac.ok ? await resPac.json() : [];
+  await renderAgendaProfissional();
+}
+
+async function renderAgendaProfissional(){
+  const segunda = profSegundaDaSemana(_profOffsetSemana);
+  const sexta = new Date(segunda); sexta.setDate(segunda.getDate()+4);
+  const fmtCurto = d => d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+  const fmtISO = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  document.getElementById('profSemanaLabel').textContent = fmtCurto(segunda) + ' – ' + fmtCurto(sexta);
+
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?profissional_id=eq.${_souMembro.id}&data_atendimento=gte.${fmtISO(segunda)}T00:00:00&data_atendimento=lte.${fmtISO(sexta)}T23:59:59&select=id,paciente_id,data_atendimento,status_validacao`, {headers});
+  const atendsSemana = res.ok ? await res.json() : [];
+
+  const grid = document.getElementById('profAgendaGrid');
+  grid.innerHTML = [1,2,3,4,5].map(dia => {
+    const dataDoDia = new Date(segunda); dataDoDia.setDate(segunda.getDate() + (dia-1));
+    const dataISO = fmtISO(dataDoDia);
+    const horariosDoDia = _profHorariosCache.filter(h => h.dia_semana === dia).sort((a,b)=>a.horario.localeCompare(b.horario));
+    const cards = horariosDoDia.map(h => {
+      const pac = _profPacientesCache.find(p => p.id === h.paciente_id);
+      if (!pac) return '';
+      const jaFeito = atendsSemana.find(a => a.paciente_id === pac.id && (a.data_atendimento||'').slice(0,10) === dataISO);
+      let acao;
+      if (jaFeito) {
+        const cores = { pendente: ['#F6E3D2','#A85C2E','⏳ Enviado'], validado: ['var(--sage-pale)','var(--sage-deep)','✅ Validado'], recusado: ['#FBE3DE','#C1594A','❌ Recusado'] };
+        const [bg, cor, txt] = cores[jaFeito.status_validacao] || cores.pendente;
+        acao = `<div style="background:${bg};color:${cor};border-radius:8px;padding:5px 8px;font-size:10.5px;font-weight:800;text-align:center;margin-top:6px;cursor:pointer" onclick="abrirAtendimentoProfExistente('${jaFeito.id}')">${txt}</div>`;
+      } else {
+        acao = `<button onclick="abrirModalAtendimentoProf('${h.id}','${dataISO}')" style="width:100%;background:var(--sage);border:none;border-radius:8px;padding:6px;color:#fff;font-size:10.5px;font-weight:700;cursor:pointer;margin-top:6px">📋 Registrar</button>`;
+      }
+      return `<div style="background:var(--white);border:1px solid var(--border);border-radius:10px;padding:9px;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:800;color:var(--sage-deep)">${h.horario}</div>
+        <div style="font-size:12.5px;font-weight:700;color:var(--ink)">${pac.nome_crianca}</div>
+        ${acao}
+      </div>`;
+    }).join('') || '<div style="font-size:11px;color:var(--ink-soft);text-align:center;padding:14px 4px">—</div>';
+
+    return `<div style="background:var(--cream);border:1px solid var(--border);border-radius:14px;padding:10px">
+      <div style="text-align:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:800;color:var(--ink-soft);text-transform:uppercase">${PROF_DIAS_CURTO[dia]}</div>
+        <div style="font-size:13px;font-weight:700">${fmtCurto(dataDoDia)}</div>
+      </div>
+      ${cards}
+    </div>`;
+  }).join('');
+
+  await renderListaAtendimentosProf();
+}
+
+async function renderListaAtendimentosProf(){
+  const el = document.getElementById('profAtendimentosList');
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?profissional_id=eq.${_souMembro.id}&order=data_atendimento.desc&limit=30`, {headers});
+  const atends = res.ok ? await res.json() : [];
+  _profAtendimentosCache = atends;
+  if (!atends.length) { el.innerHTML = '<div class="empty">Nenhum atendimento registrado ainda</div>'; return; }
+
+  el.innerHTML = atends.map(a => {
+    const pac = _profPacientesCache.find(p => p.id === a.paciente_id);
+    const dt = new Date(a.data_atendimento);
+    const dataFmt = dt.toLocaleDateString('pt-BR') + ' · ' + dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const status = { pendente: ['⏳ Pendente','var(--clay)'], validado: ['✅ Validado','var(--sage-deep)'], recusado: ['❌ Recusado','#C1594A'] }[a.status_validacao] || ['—',''];
+    return `<div class="pac-card" style="cursor:${a.status_validacao==='recusado'?'pointer':'default'}" ${a.status_validacao==='recusado' ? `onclick="abrirAtendimentoProfExistente('${a.id}')"` : ''}>
+      <div class="pac-avatar">${pac ? (pac.nome_crianca[0]||'?').toUpperCase() : '?'}</div>
+      <div class="pac-info">
+        <div class="nome">${pac ? pac.nome_crianca : '—'}</div>
+        <div class="resp">${dataFmt}</div>
+        ${a.status_validacao==='recusado' && a.motivo_recusa ? `<div style="font-size:11px;color:#C1594A;margin-top:2px">Motivo: ${a.motivo_recusa} — toque pra corrigir</div>` : ''}
+      </div>
+      <span style="font-size:11px;font-weight:800;color:${status[1]}">${status[0]}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Modal de atendimento do profissional (novo ou reenvio após recusa) ──
+let _profAtendimentoIdEdicao = null;
+
+function abrirModalAtendimentoProf(horarioId, dataISO){
+  const h = _profHorariosCache.find(x => x.id === horarioId);
+  if (!h) return;
+  const pac = _profPacientesCache.find(p => p.id === h.paciente_id);
+  if (!pac) return;
+  _profAtendimentoIdEdicao = null;
+  _profFotoFile = null;
+  document.getElementById('mapTitulo').textContent = 'Registrar Atendimento';
+  document.getElementById('mapId').value = '';
+  document.getElementById('mapPacienteId').value = pac.id;
+  document.getElementById('mapPacienteNome').textContent = pac.nome_crianca;
+  document.getElementById('mapData').value = dataISO + 'T' + h.horario;
+  document.getElementById('mapIndicadores').value = '';
+  document.getElementById('mapValor').value = pac.valor_sessao || '';
+  document.getElementById('mapFotoInput').value = '';
+  document.getElementById('mapFotoBox').innerHTML = '📷 Toque pra escolher — Câmera ou Galeria';
+  document.getElementById('mapRecusaAviso').style.display = 'none';
+  document.getElementById('mapBtnSalvar').textContent = 'Enviar pra validação';
+  abrirModal('modalAtendimentoProf');
+}
+
+async function abrirAtendimentoProfExistente(atendimentoId){
+  const a = _profAtendimentosCache.find(x => x.id === atendimentoId);
+  if (!a) return;
+  const pac = _profPacientesCache.find(p => p.id === a.paciente_id);
+  _profAtendimentoIdEdicao = a.id;
+  _profFotoFile = null;
+  document.getElementById('mapTitulo').textContent = 'Corrigir Atendimento';
+  document.getElementById('mapId').value = a.id;
+  document.getElementById('mapPacienteId').value = a.paciente_id;
+  document.getElementById('mapPacienteNome').textContent = pac ? pac.nome_crianca : '—';
+  const dt = new Date(a.data_atendimento);
+  dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+  document.getElementById('mapData').value = dt.toISOString().slice(0,16);
+  document.getElementById('mapIndicadores').value = a.indicadores || '';
+  document.getElementById('mapValor').value = a.valor || '';
+  document.getElementById('mapFotoInput').value = '';
+  document.getElementById('mapBtnSalvar').textContent = 'Reenviar pra validação';
+
+  const avisoEl = document.getElementById('mapRecusaAviso');
+  if (a.status_validacao === 'recusado' && a.motivo_recusa) {
+    avisoEl.style.display = 'block';
+    avisoEl.textContent = '❌ Recusado pela clínica: ' + a.motivo_recusa;
+  } else {
+    avisoEl.style.display = 'none';
+  }
+
+  document.getElementById('mapFotoBox').innerHTML = '📷 Toque pra escolher — Câmera ou Galeria';
+  if (a.foto_path) {
+    try {
+      const { data } = await sb.storage.from('clinica-fotos').createSignedUrl(a.foto_path, 3600);
+      if (data && data.signedUrl) document.getElementById('mapFotoBox').innerHTML = `<img src="${data.signedUrl}" style="width:100%;height:100%;object-fit:cover">`;
+    } catch(e) {}
+  }
+  abrirModal('modalAtendimentoProf');
+}
+
+function prevFotoProf(input){
+  const file = input.files && input.files[0];
+  if (!file) return;
+  _profFotoFile = file;
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById('mapFotoBox').innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`; };
+  reader.readAsDataURL(file);
+}
+
+async function salvarAtendimentoProf(){
+  const pacienteId = document.getElementById('mapPacienteId').value;
+  const dataHora = document.getElementById('mapData').value;
+  if (!pacienteId || !dataHora) { toast('⚠️ Preenche a data e horário'); return; }
+  const btn = document.getElementById('mapBtnSalvar');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+
+  let fotoPath = undefined, erroFoto = null;
+  try {
+    if (_profFotoFile) fotoPath = await uploadFotoClinica(_profFotoFile, S.user.id);
+    else if (!_profAtendimentoIdEdicao) fotoPath = null;
+  } catch(e) { erroFoto = e.message; }
+
+  const headers = await authHeaders();
+  const corpo = {
+    data_atendimento: new Date(dataHora).toISOString(),
+    indicadores: document.getElementById('mapIndicadores').value.trim() || null,
+    valor: Number(document.getElementById('mapValor').value) || 0,
+    status_validacao: 'pendente',
+    motivo_recusa: null
+  };
+  if (fotoPath !== undefined) corpo.foto_path = fotoPath;
+
+  let res;
+  if (_profAtendimentoIdEdicao) {
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?id=eq.${_profAtendimentoIdEdicao}`, {method:'PATCH', headers, body: JSON.stringify(corpo)});
+  } else {
+    corpo.paciente_id = pacienteId;
+    corpo.profissional_id = _souMembro.id;
+    corpo.user_id = _souMembro.user_id;
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos`, {method:'POST', headers, body: JSON.stringify(corpo)});
+  }
+  btn.disabled = false; btn.textContent = 'Enviar pra validação';
+  if (!res.ok) { let corpoErro=''; try{corpoErro=await res.text();}catch(_){} toast('❌ Erro: '+corpoErro); return; }
+  fecharModal('modalAtendimentoProf');
+  toast(erroFoto ? '⚠️ Enviado, mas a foto falhou: ' + erroFoto : '✅ Enviado pra validação!');
+  await carregarAgendaProfissional();
+}
+
+let _profissionalAtual = null;
+
 function abrirModalProfissional(prof){
+  _profissionalAtual = prof || null;
   document.getElementById('mprTitulo').textContent = prof ? 'Editar Profissional' : 'Novo Profissional';
   document.getElementById('mprId').value = prof ? prof.id : '';
   document.getElementById('mprNome').value = prof ? prof.nome : '';
   document.getElementById('mprValor').value = prof ? prof.valor_por_atendimento : '';
+
+  const box = document.getElementById('mprAcessoBox');
+  const status = document.getElementById('mprAcessoStatus');
+  const btn = document.getElementById('mprBtnGerarCodigo');
+  if (prof) {
+    box.style.display = 'block';
+    if (prof.auth_uid) {
+      status.innerHTML = '✅ Acesso já vinculado — ' + prof.nome + ' já pode entrar pela conta própria.';
+      btn.style.display = 'none';
+    } else {
+      status.textContent = prof.convite_token ? 'Link já gerado — toque no botão pra ver de novo.' : 'Ainda sem acesso próprio configurado.';
+      btn.textContent = prof.convite_token ? 'Ver link de acesso' : 'Gerar link de acesso';
+      btn.style.display = 'inline-block';
+      btn.onclick = () => gerarOuMostrarConvite(prof.id, prof.convite_token || '');
+    }
+  } else {
+    box.style.display = 'none';
+  }
   abrirModal('modalProfissional');
 }
 
