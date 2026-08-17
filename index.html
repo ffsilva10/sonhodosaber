@@ -345,6 +345,13 @@ input,textarea,select{font-family:inherit;font-size:14px}
     </div>
   </div>
   <div class="main">
+    <div class="stat-grid" style="margin-bottom:20px">
+      <div class="stat-card sage"><div class="lbl">A receber este mês</div><div class="val" id="profStatReceber">R$ 0,00</div></div>
+      <div class="stat-card"><div class="lbl">Valor por atendimento</div><div class="val" id="profStatValor">R$ 0,00</div></div>
+      <div class="stat-card clay"><div class="lbl">Dia de pagamento</div><div class="val" id="profStatDia" style="font-size:19px">—</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-soft);margin:-12px 0 20px">Valor calculado sobre os atendimentos já validados pela clínica esse mês.</div>
+
     <div class="section-head">
       <h2>Minha Semana</h2>
       <div style="display:flex;align-items:center;gap:8px">
@@ -499,6 +506,7 @@ input,textarea,select{font-family:inherit;font-size:14px}
     <input type="hidden" id="mprId">
     <div class="field"><label>Nome</label><input id="mprNome" placeholder="Ex: Joana"></div>
     <div class="field"><label>Valor combinado por atendimento (R$)</label><input id="mprValor" type="number" step="0.01" placeholder="0,00"></div>
+    <div class="field"><label>Dia de pagamento (dia do mês)</label><input id="mprDia" type="number" min="1" max="28" placeholder="Ex: 5"></div>
 
     <div id="mprAcessoBox" style="display:none;background:var(--cream);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px">
       <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">📱 Acesso do profissional</div>
@@ -1092,6 +1100,7 @@ async function renderEquipe(){
         <div class="nome">${prof.nome}</div>
         <div class="resp">${qtd} atendimento(s) este mês · ${fmtReais(prof.valor_por_atendimento)}/atend.</div>
         ${diaTop ? `<div style="font-size:11px;color:var(--sage-deep);font-weight:700;margin-top:2px">📌 Dia com mais atendimento: ${diaTop}</div>` : ''}
+        ${prof.dia_pagamento ? `<div style="font-size:11px;color:#A85C2E;font-weight:700;margin-top:2px">💵 Pagar todo dia ${prof.dia_pagamento}</div>` : `<div style="font-size:11px;color:var(--ink-soft);margin-top:2px">💵 Dia de pagamento não definido</div>`}
         <div style="margin-top:6px">${btnAcesso}</div>
       </div>
       <div style="text-align:right">
@@ -1240,7 +1249,22 @@ async function carregarAgendaProfissional(){
   ]);
   _profHorariosCache = resHor.ok ? await resHor.json() : [];
   _profPacientesCache = resPac.ok ? await resPac.json() : [];
+  await renderStatsProf();
   await renderAgendaProfissional();
+}
+
+// Mostra pro profissional quanto ele já tem a receber esse mês (com base
+// nos atendimentos validados pela clínica) e em qual dia ele é pago
+async function renderStatsProf(){
+  document.getElementById('profStatValor').textContent = fmtReais(_souMembro.valor_por_atendimento);
+  document.getElementById('profStatDia').textContent = _souMembro.dia_pagamento ? ('Todo dia ' + _souMembro.dia_pagamento) : 'Não definido';
+  const headers = await authHeaders();
+  const hoje = new Date();
+  const inicioMes = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-01';
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?profissional_id=eq.${_souMembro.id}&status_validacao=eq.validado&data_atendimento=gte.${inicioMes}&select=id`, {headers});
+  const atends = res.ok ? await res.json() : [];
+  const total = atends.length * Number(_souMembro.valor_por_atendimento||0);
+  document.getElementById('profStatReceber').textContent = fmtReais(total);
 }
 
 async function renderAgendaProfissional(){
@@ -1488,6 +1512,7 @@ function abrirModalProfissional(prof){
   document.getElementById('mprId').value = prof ? prof.id : '';
   document.getElementById('mprNome').value = prof ? prof.nome : '';
   document.getElementById('mprValor').value = prof ? prof.valor_por_atendimento : '';
+  document.getElementById('mprDia').value = prof ? (prof.dia_pagamento||'') : '';
 
   const box = document.getElementById('mprAcessoBox');
   const status = document.getElementById('mprAcessoStatus');
@@ -1512,14 +1537,15 @@ function abrirModalProfissional(prof){
 async function salvarProfissional(){
   const nome = document.getElementById('mprNome').value.trim();
   const valor = Number(document.getElementById('mprValor').value) || 0;
+  const diaPagamento = document.getElementById('mprDia').value ? Number(document.getElementById('mprDia').value) : null;
   if (!nome) { toast('⚠️ Digita o nome'); return; }
   const headers = await authHeaders();
   const id = document.getElementById('mprId').value;
   let res;
   if (id) {
-    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify({nome, valor_por_atendimento: valor})});
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify({nome, valor_por_atendimento: valor, dia_pagamento: diaPagamento})});
   } else {
-    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe`, {method:'POST', headers, body: JSON.stringify({nome, valor_por_atendimento: valor, user_id: S.user.id})});
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_equipe`, {method:'POST', headers, body: JSON.stringify({nome, valor_por_atendimento: valor, dia_pagamento: diaPagamento, user_id: S.user.id})});
   }
   if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro (HTTP '+res.status+'): '+corpo); return; }
   fecharModal('modalProfissional');
