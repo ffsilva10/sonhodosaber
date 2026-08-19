@@ -320,6 +320,12 @@ input,textarea,select{font-family:inherit;font-size:14px}
         <h2>Pacientes</h2>
         <button class="btn-add" onclick="abrirModalPaciente()">+ Novo paciente</button>
       </div>
+      <div class="pill-toggle" style="max-width:420px" id="pacFiltroPill">
+        <button type="button" id="pacFiltroTodos" class="on" onclick="pacFiltrarMensalidade('todos')">Todos</button>
+        <button type="button" id="pacFiltroPagos" onclick="pacFiltrarMensalidade('pago')">✅ Pagos</button>
+        <button type="button" id="pacFiltroPendentes" onclick="pacFiltrarMensalidade('pendente')">⏳ Não pagos</button>
+      </div>
+      <div style="font-size:11px;color:var(--ink-soft);margin:8px 0 16px">O filtro de mensalidade vale pra pacientes de pacote — quem é avulso paga por sessão e não entra nesse controle.</div>
       <div class="card-list" id="pacientesList"><div class="empty">Carregando...</div></div>
     </div>
 
@@ -437,9 +443,48 @@ input,textarea,select{font-family:inherit;font-size:14px}
       <input type="hidden" id="mpTipoCobranca" value="avulso">
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="field"><label>Valor (R$)</label><input id="mpValor" type="number" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Valor (R$)</label><input id="mpValor" type="number" step="0.01" placeholder="0,00" oninput="mpAtualizarEstimativa()"></div>
       <div class="field" id="mpDiaBox" style="display:none"><label>Dia pgto/mês</label><input id="mpDia" type="number" min="1" max="28" placeholder="10"></div>
     </div>
+
+    <div class="field">
+      <label>Dias e horários de atendimento</label>
+      <div style="font-size:11px;color:var(--ink-soft);margin-bottom:8px">Marca todos os dias que esse paciente vem — não precisa cadastrar um por um na Agenda.</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <label style="display:flex;align-items:center;gap:6px;width:84px;font-size:12.5px;font-weight:700;cursor:pointer"><input type="checkbox" id="mpDiaChk1" onchange="mpToggleDia(1)" style="width:16px;height:16px">Segunda</label>
+          <input type="time" id="mpDiaHora1" value="09:00" disabled oninput="mpAtualizarEstimativa()" style="flex:1;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;background:var(--cream)">
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label style="display:flex;align-items:center;gap:6px;width:84px;font-size:12.5px;font-weight:700;cursor:pointer"><input type="checkbox" id="mpDiaChk2" onchange="mpToggleDia(2)" style="width:16px;height:16px">Terça</label>
+          <input type="time" id="mpDiaHora2" value="09:00" disabled oninput="mpAtualizarEstimativa()" style="flex:1;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;background:var(--cream)">
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label style="display:flex;align-items:center;gap:6px;width:84px;font-size:12.5px;font-weight:700;cursor:pointer"><input type="checkbox" id="mpDiaChk3" onchange="mpToggleDia(3)" style="width:16px;height:16px">Quarta</label>
+          <input type="time" id="mpDiaHora3" value="09:00" disabled oninput="mpAtualizarEstimativa()" style="flex:1;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;background:var(--cream)">
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label style="display:flex;align-items:center;gap:6px;width:84px;font-size:12.5px;font-weight:700;cursor:pointer"><input type="checkbox" id="mpDiaChk4" onchange="mpToggleDia(4)" style="width:16px;height:16px">Quinta</label>
+          <input type="time" id="mpDiaHora4" value="09:00" disabled oninput="mpAtualizarEstimativa()" style="flex:1;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;background:var(--cream)">
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label style="display:flex;align-items:center;gap:6px;width:84px;font-size:12.5px;font-weight:700;cursor:pointer"><input type="checkbox" id="mpDiaChk5" onchange="mpToggleDia(5)" style="width:16px;height:16px">Sexta</label>
+          <input type="time" id="mpDiaHora5" value="09:00" disabled oninput="mpAtualizarEstimativa()" style="flex:1;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;background:var(--cream)">
+        </div>
+      </div>
+    </div>
+
+    <div class="field"><label>Profissional responsável</label>
+      <select id="mpProfissionalSel" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream)">
+        <option value="">Sem profissional definido</option>
+      </select>
+    </div>
+
+    <div id="mpEstimativaBox" style="display:none;background:var(--sage-pale);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:10.5px;font-weight:700;color:var(--sage-deep);text-transform:uppercase;letter-spacing:.4px">Valor estimado este mês</div>
+      <div id="mpEstimativaValor" style="font-family:'Fraunces',serif;font-size:22px;font-weight:600;color:var(--sage-deep)">R$ 0,00</div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn-cancel" onclick="fecharModal('modalPaciente')">Cancelar</button>
       <button class="btn-save" onclick="salvarPaciente()">Salvar</button>
@@ -761,7 +806,7 @@ async function authHeaders(){
 async function carregarTudo(){
   await carregarPacientes();
   await carregarEquipe();
-  await Promise.all([carregarFinanceiro(), carregarHorarios(), carregarValidacao(), carregarContasFixas(), carregarPedidosRelatorio()]);
+  await Promise.all([carregarFinanceiro(), carregarHorarios(), carregarValidacao(), carregarContasFixas(), carregarPedidosRelatorio(), carregarMensalidades()]);
 }
 
 // ── CONTAS A VENCER ───────────────────────────────────────────
@@ -865,20 +910,112 @@ async function carregarPacientes(){
   document.getElementById('statAReceber').textContent = fmtReais(pend.reduce((s,a)=>s+Number(a.valor||0),0));
 }
 
+// ── MENSALIDADE (pacientes de pacote) ──
+let _mensalidadesCache = [];
+let _pacFiltroAtual = 'todos'; // todos | pago | pendente
+
+function mesReferenciaAtual(){
+  const hoje = new Date();
+  return hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-01';
+}
+
+async function carregarMensalidades(){
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_mensalidades?user_id=eq.${S.user.id}&mes_referencia=eq.${mesReferenciaAtual()}`, {headers});
+  _mensalidadesCache = res.ok ? await res.json() : [];
+  renderPacientes();
+}
+
+// Sem registro pra esse mês = ainda não foi marcado como pago
+function statusMensalidade(pacienteId){
+  const m = _mensalidadesCache.find(x => x.paciente_id === pacienteId);
+  return m ? m.status : 'pendente';
+}
+
+function pacFiltrarMensalidade(filtro){
+  _pacFiltroAtual = filtro;
+  document.getElementById('pacFiltroTodos').classList.toggle('on', filtro==='todos');
+  document.getElementById('pacFiltroPagos').classList.toggle('on', filtro==='pago');
+  document.getElementById('pacFiltroPendentes').classList.toggle('on', filtro==='pendente');
+  renderPacientes();
+}
+
+async function marcarMensalidadePaga(pacienteId){
+  const p = _pacientesCache.find(x => x.id === pacienteId);
+  if (!p) return;
+  const headers = await authHeaders();
+  const descLanc = enc('Mensalidade: ' + p.nome_crianca, S.user.id);
+  const catLanc = enc('Clínica', S.user.id);
+  const resLanc = await fetch(`${SUPA_URL}/rest/v1/fp_lancs`, {
+    method:'POST', headers: {...headers, 'Prefer':'return=representation'},
+    body: JSON.stringify({ user_id: S.user.id, descricao: descLanc, valor: Number(p.valor_sessao)||0, data: new Date().toISOString().slice(0,10), cat: catLanc, tipo:'receita', parcelas:1, parcela_atual:1 })
+  });
+  const lancCriado = resLanc.ok ? (await resLanc.json())[0] : null;
+
+  const existente = _mensalidadesCache.find(x => x.paciente_id === pacienteId);
+  let res;
+  if (existente) {
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_mensalidades?id=eq.${existente.id}`, {method:'PATCH', headers, body: JSON.stringify({status:'pago', lanc_id: lancCriado?lancCriado.id:null, pago_em: new Date().toISOString()})});
+  } else {
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_mensalidades`, {method:'POST', headers, body: JSON.stringify({user_id:S.user.id, paciente_id:pacienteId, mes_referencia:mesReferenciaAtual(), valor:Number(p.valor_sessao)||0, status:'pago', lanc_id: lancCriado?lancCriado.id:null, pago_em: new Date().toISOString()})});
+  }
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro: '+corpo); return; }
+  toast('✅ Mensalidade marcada como paga!');
+  carregarMensalidades();
+  carregarFinanceiro();
+}
+
+async function desmarcarMensalidadePaga(pacienteId){
+  if (!confirm('Desmarcar a mensalidade como paga? A receita será removida do financeiro.')) return;
+  const headers = await authHeaders();
+  const existente = _mensalidadesCache.find(x => x.paciente_id === pacienteId);
+  if (!existente) return;
+  if (existente.lanc_id) await fetch(`${SUPA_URL}/rest/v1/fp_lancs?id=eq.${existente.lanc_id}`, {method:'DELETE', headers});
+  await fetch(`${SUPA_URL}/rest/v1/fp_clinica_mensalidades?id=eq.${existente.id}`, {method:'PATCH', headers, body: JSON.stringify({status:'pendente', lanc_id:null, pago_em:null})});
+  toast('Desmarcado');
+  carregarMensalidades();
+  carregarFinanceiro();
+}
+
 function renderPacientes(){
   const el = document.getElementById('pacientesList');
   if (!_pacientesCache.length) { el.innerHTML = '<div class="empty">Nenhum paciente cadastrado ainda</div>'; return; }
-  el.innerHTML = _pacientesCache.map(p => `
+
+  let lista = _pacientesCache;
+  if (_pacFiltroAtual !== 'todos') {
+    lista = _pacientesCache.filter(p => p.tipo_cobranca === 'pacote' && statusMensalidade(p.id) === _pacFiltroAtual);
+  }
+  if (!lista.length) { el.innerHTML = `<div class="empty">Nenhum paciente ${_pacFiltroAtual==='pago' ? 'com mensalidade paga' : 'com mensalidade pendente'} esse mês</div>`; return; }
+
+  const hoje = new Date();
+  el.innerHTML = lista.map(p => {
+    const horariosPaciente = _horariosCache.filter(h => h.paciente_id === p.id);
+    let infoDias = '';
+    if (horariosPaciente.length) {
+      const estimativa = horariosPaciente.reduce((s,h) => s + Number(p.valor_sessao||0) * contarDiasNoMes(hoje, h.dia_semana), 0);
+      infoDias = `<div style="font-size:11px;color:var(--sage-deep);font-weight:700;margin-top:2px">📅 ${horariosPaciente.length}x/semana · ${fmtReais(estimativa)}/mês</div>`;
+    }
+    let mensalidadeHtml = '';
+    if (p.tipo_cobranca === 'pacote') {
+      const status = statusMensalidade(p.id);
+      mensalidadeHtml = status === 'pago'
+        ? `<button onclick="event.stopPropagation();desmarcarMensalidadePaga('${p.id}')" style="margin-top:5px;background:var(--sage-pale);border:none;border-radius:20px;padding:3px 10px;font-size:10.5px;font-weight:800;color:var(--sage-deep);cursor:pointer">✅ Mensalidade paga</button>`
+        : `<button onclick="event.stopPropagation();marcarMensalidadePaga('${p.id}')" style="margin-top:5px;background:var(--clay-pale);border:none;border-radius:20px;padding:3px 10px;font-size:10.5px;font-weight:800;color:#A85C2E;cursor:pointer">⏳ Marcar mensalidade paga</button>`;
+    }
+    return `
     <div class="pac-card" onclick="abrirDetalhePaciente('${p.id}')">
       <div class="pac-avatar">${(p.nome_crianca[0]||'?').toUpperCase()}</div>
       <div class="pac-info">
         <div class="nome">${p.nome_crianca}</div>
         <div class="resp">${p.nome_responsavel || 'Sem responsável cadastrado'}</div>
+        ${infoDias}
+        ${mensalidadeHtml}
       </div>
       <span class="badge ${p.tipo_cobranca}">${p.tipo_cobranca==='pacote'?'📦 Pacote':'🔹 Avulso'}</span>
       <button onclick="event.stopPropagation();excluirPaciente('${p.id}','${p.nome_crianca.replace(/'/g,"\\'")}')" style="background:none;border:none;font-size:16px;cursor:pointer;margin-left:4px">🗑️</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 async function excluirPaciente(id, nome){
@@ -921,6 +1058,7 @@ async function carregarHorarios(){
   _horariosCache = res.ok ? await res.json() : [];
   popularFiltroPacienteAgenda();
   renderAgenda();
+  renderPacientes();
 }
 
 function popularFiltroPacienteAgenda(){
@@ -1793,7 +1931,31 @@ function mpSelecionarCobranca(tipo){
   document.getElementById('mpDiaBox').style.display = tipo==='pacote' ? 'block' : 'none';
 }
 
-function abrirModalPaciente(paciente){
+function mpToggleDia(dia){
+  const chk = document.getElementById('mpDiaChk' + dia);
+  document.getElementById('mpDiaHora' + dia).disabled = !chk.checked;
+  mpAtualizarEstimativa();
+}
+
+// Recalcula, em tempo real, quanto esse paciente vai gerar esse mês —
+// valor da sessão × quantas vezes cada dia marcado cai no mês corrente
+function mpAtualizarEstimativa(){
+  const valor = Number(document.getElementById('mpValor').value) || 0;
+  const box = document.getElementById('mpEstimativaBox');
+  const hoje = new Date();
+  let total = 0, diasMarcados = 0;
+  for (let dia = 1; dia <= 5; dia++) {
+    if (document.getElementById('mpDiaChk' + dia).checked) {
+      diasMarcados++;
+      total += valor * contarDiasNoMes(hoje, dia);
+    }
+  }
+  if (!valor || !diasMarcados) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  document.getElementById('mpEstimativaValor').textContent = fmtReais(total);
+}
+
+async function abrirModalPaciente(paciente){
   document.getElementById('mpTitulo').textContent = paciente ? 'Editar Paciente' : 'Novo Paciente';
   document.getElementById('mpId').value = paciente ? paciente.id : '';
   document.getElementById('mpNomeCrianca').value = paciente ? paciente.nome_crianca : '';
@@ -1802,6 +1964,31 @@ function abrirModalPaciente(paciente){
   document.getElementById('mpValor').value = paciente ? (paciente.valor_sessao||'') : '';
   document.getElementById('mpDia').value = paciente ? (paciente.dia_pagamento||'') : '';
   mpSelecionarCobranca(paciente ? paciente.tipo_cobranca : 'avulso');
+
+  const selProf = document.getElementById('mpProfissionalSel');
+  selProf.innerHTML = '<option value="">Sem profissional definido</option>' + _equipeCache.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+  selProf.value = '';
+
+  for (let dia = 1; dia <= 5; dia++) {
+    document.getElementById('mpDiaChk' + dia).checked = false;
+    document.getElementById('mpDiaHora' + dia).disabled = true;
+    document.getElementById('mpDiaHora' + dia).value = '09:00';
+  }
+
+  if (paciente) {
+    const headers = await authHeaders();
+    const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_horarios?paciente_id=eq.${paciente.id}&ativo=eq.true`, {headers});
+    const horarios = res.ok ? await res.json() : [];
+    horarios.forEach(h => {
+      if (h.dia_semana >= 1 && h.dia_semana <= 5) {
+        document.getElementById('mpDiaChk' + h.dia_semana).checked = true;
+        document.getElementById('mpDiaHora' + h.dia_semana).disabled = false;
+        document.getElementById('mpDiaHora' + h.dia_semana).value = h.horario;
+        if (h.profissional_id) selProf.value = h.profissional_id;
+      }
+    });
+  }
+  mpAtualizarEstimativa();
   abrirModal('modalPaciente');
 }
 
@@ -1818,17 +2005,46 @@ async function salvarPaciente(){
     valor_sessao: Number(document.getElementById('mpValor').value) || 0,
     dia_pagamento: document.getElementById('mpDia').value ? Number(document.getElementById('mpDia').value) : null
   };
+  let pacienteId = id;
   let res;
   if (id) {
     res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pacientes?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify(body)});
   } else {
     body.user_id = S.user.id;
-    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pacientes`, {method:'POST', headers, body: JSON.stringify(body)});
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pacientes`, {method:'POST', headers: {...headers, 'Prefer':'return=representation'}, body: JSON.stringify(body)});
   }
   if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro (HTTP '+res.status+'): '+corpo); return; }
+  if (!id) {
+    const criado = await res.json();
+    pacienteId = criado[0] ? criado[0].id : null;
+  }
+
+  // Sincroniza os horários fixos com o que foi marcado no modal: apaga os
+  // antigos desse paciente e recria só com os dias que ficaram marcados —
+  // assim dá pra cadastrar/ajustar todos os dias de uma vez só
+  if (pacienteId) {
+    const profissionalId = document.getElementById('mpProfissionalSel').value || null;
+    await fetch(`${SUPA_URL}/rest/v1/fp_clinica_horarios?paciente_id=eq.${pacienteId}`, {method:'DELETE', headers});
+    const novosHorarios = [];
+    for (let dia = 1; dia <= 5; dia++) {
+      if (document.getElementById('mpDiaChk' + dia).checked) {
+        novosHorarios.push({
+          paciente_id: pacienteId, user_id: S.user.id, dia_semana: dia,
+          horario: document.getElementById('mpDiaHora' + dia).value || '09:00',
+          profissional_id: profissionalId
+        });
+      }
+    }
+    if (novosHorarios.length) {
+      const resH = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_horarios`, {method:'POST', headers, body: JSON.stringify(novosHorarios)});
+      if (!resH.ok) { let corpo=''; try{corpo=await resH.text();}catch(_){} toast('⚠️ Paciente salvo, mas os horários deram erro: '+corpo); }
+    }
+  }
+
   fecharModal('modalPaciente');
   toast('✅ Paciente salvo!');
   carregarPacientes();
+  carregarHorarios();
 }
 
 async function abrirDetalhePaciente(id){
@@ -1836,12 +2052,46 @@ async function abrirDetalhePaciente(id){
   if (!p) return;
   _pacienteAtual = p;
   document.getElementById('pdTitulo').textContent = p.nome_crianca;
+
+  const horariosPaciente = _horariosCache.filter(h => h.paciente_id === id).sort((a,b) => a.dia_semana - b.dia_semana);
+  const diasTxt = horariosPaciente.length
+    ? horariosPaciente.map(h => DIAS_LABEL[h.dia_semana] + ' ' + h.horario).join(' · ')
+    : 'Nenhum dia fixo cadastrado';
+  const hoje = new Date();
+  const estimativaMes = horariosPaciente.reduce((s,h) => s + Number(p.valor_sessao||0) * contarDiasNoMes(hoje, h.dia_semana), 0);
+
+  // Valor REAL até agora: olha o que já foi de fato registrado esse mês —
+  // compareceu conta pra cobrança, faltou não conta. É diferente da
+  // "previsão" acima, que assume que todo mundo vai comparecer sempre.
+  const headers = await authHeaders();
+  const inicioMes = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-01';
+  const resAt = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?paciente_id=eq.${id}&data_atendimento=gte.${inicioMes}&select=presenca`, {headers});
+  const atendsMes = resAt.ok ? await resAt.json() : [];
+  const compareceram = atendsMes.filter(a => a.presenca === 'compareceu').length;
+  const faltaram = atendsMes.filter(a => a.presenca === 'faltou').length;
+  const valorConfirmado = compareceram * Number(p.valor_sessao||0);
+
   document.getElementById('pdInfo').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
       <div><div style="font-size:11px;color:var(--ink-soft)">Responsável</div><div style="font-weight:700">${p.nome_responsavel||'—'}</div></div>
       <button class="btn-ghost" onclick="abrirModalPaciente(_pacienteAtual)">✏️ Editar</button>
     </div>
-    <div style="font-size:12.5px;color:var(--ink-soft)">Cobrança: <b style="color:var(--ink)">${p.tipo_cobranca==='pacote'?'Pacote/Mensal':'Avulso'}</b> · ${fmtReais(p.valor_sessao)}${p.tipo_cobranca==='pacote'&&p.dia_pagamento?' · todo dia '+p.dia_pagamento:''}</div>
+    <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px">Cobrança: <b style="color:var(--ink)">${p.tipo_cobranca==='pacote'?'Pacote/Mensal':'Avulso'}</b> · ${fmtReais(p.valor_sessao)}${p.tipo_cobranca==='pacote'&&p.dia_pagamento?' · todo dia '+p.dia_pagamento:''}</div>
+    <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:${horariosPaciente.length?'8px':'0'}">📅 ${diasTxt}</div>
+    ${horariosPaciente.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+      <div style="background:var(--sage-pale);border-radius:10px;padding:8px 12px">
+        <div style="font-size:10px;font-weight:700;color:var(--sage-deep);text-transform:uppercase;letter-spacing:.3px">Confirmado até agora</div>
+        <div style="font-size:16px;font-weight:700;color:var(--sage-deep)">${fmtReais(valorConfirmado)}</div>
+      </div>
+      <div style="background:var(--cream-deep);border-radius:10px;padding:8px 12px">
+        <div style="font-size:10px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.3px">Previsão se vier tudo</div>
+        <div style="font-size:16px;font-weight:700;color:var(--ink)">${fmtReais(estimativaMes)}</div>
+      </div>
+      ${faltaram ? `<div style="background:#FBE3DE;border-radius:10px;padding:8px 12px">
+        <div style="font-size:10px;font-weight:700;color:#C1594A;text-transform:uppercase;letter-spacing:.3px">Faltas (não cobradas)</div>
+        <div style="font-size:16px;font-weight:700;color:#C1594A">${faltaram}</div>
+      </div>` : ''}
+    </div>` : ''}
   `;
   document.getElementById('pacienteDetalheOverlay').style.display = 'block';
   await carregarAtendimentos(id);
