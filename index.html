@@ -586,18 +586,28 @@ input,textarea,select{font-family:inherit;font-size:14px}
   </div>
 </div>
 
-<!-- MODAL: DESPESA MANUAL -->
+<!-- MODAL: DESPESA MANUAL / EDITAR LANÇAMENTO -->
 <div class="modal-bg" id="modalDespesa">
   <div class="modal">
-    <h3>Nova Despesa</h3>
-    <div class="sub">Registra uma conta ou gasto da clínica</div>
+    <h3 id="mdTitulo">Nova Despesa</h3>
+    <div class="sub" id="mdSub">Registra uma conta ou gasto da clínica</div>
+    <input type="hidden" id="mdId">
+    <div class="field" id="mdTipoBox" style="display:none">
+      <label>Tipo</label>
+      <div class="pill-toggle">
+        <button type="button" id="mdBtnGasto" class="on" onclick="mdSelecionarTipo('gasto')">🧾 Despesa</button>
+        <button type="button" id="mdBtnReceita" onclick="mdSelecionarTipo('receita')">💰 Receita</button>
+      </div>
+      <input type="hidden" id="mdTipo" value="gasto">
+    </div>
     <div class="field"><label>Descrição</label><input id="mdDescricao" placeholder="Ex: Conta de luz"></div>
     <div class="field"><label>Valor (R$)</label><input id="mdValor" type="number" step="0.01" placeholder="0,00"></div>
     <div class="field"><label>Categoria</label>
       <select id="mdCategoria" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream)">
-        <option>Contas fixas</option><option>Material</option><option>Aluguel</option><option>Outros</option>
+        <option>Contas fixas</option><option>Material</option><option>Aluguel</option><option>Clínica</option><option>Outros</option>
       </select>
     </div>
+    <button id="mdBtnExcluir" onclick="excluirLancamento(document.getElementById('mdId').value)" style="display:none;width:100%;background:#FBE3DE;border:1px solid #F0C4B8;border-radius:12px;padding:11px;color:var(--red);font-weight:700;font-size:13px;margin-bottom:8px">🗑️ Excluir lançamento</button>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="fecharModal('modalDespesa')">Cancelar</button>
       <button class="btn-save" onclick="salvarDespesaManual()">Salvar</button>
@@ -2056,6 +2066,7 @@ async function carregarFinanceiro(){
           <th style="text-align:left;padding:10px 8px;font-size:10.5px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px">O que é</th>
           <th style="text-align:left;padding:10px 8px;font-size:10.5px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px">Categoria</th>
           <th style="text-align:right;padding:10px 8px;font-size:10.5px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px">Valor</th>
+          <th style="text-align:right;padding:10px 8px;font-size:10.5px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px"></th>
         </tr>
       </thead>
       <tbody>
@@ -2069,6 +2080,10 @@ async function carregarFinanceiro(){
             <td style="padding:11px 8px;font-size:13px;font-weight:600">${l.tipo==='receita'?'💰':'🧾'} ${desc}</td>
             <td style="padding:11px 8px"><span style="background:${corLinha};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:var(--ink)">${cat||'—'}</span></td>
             <td style="padding:11px 8px;text-align:right;font-weight:700;font-size:13px;color:${l.tipo==='receita'?'var(--sage-deep)':'var(--red)'}">${l.tipo==='receita'?'+':'−'} ${fmtReais(l.valor)}</td>
+            <td style="padding:11px 4px;text-align:right;white-space:nowrap">
+              <button onclick="abrirModalLancamento(${JSON.stringify(l).replace(/"/g,'&quot;')})" title="Editar" style="background:none;border:none;font-size:14px;cursor:pointer;padding:2px 5px">✏️</button>
+              <button onclick="excluirLancamento('${l.id}')" title="Excluir" style="background:none;border:none;font-size:14px;cursor:pointer;padding:2px 5px">🗑️</button>
+            </td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -2089,31 +2104,89 @@ async function carregarFinanceiro(){
   document.getElementById('inicioLancsList').innerHTML = lancs.length ? `<div style="background:var(--white);border:1px solid var(--border);border-radius:18px;padding:6px 18px">${top5}</div>` : '<div class="empty">Nenhum lançamento este mês</div>';
 }
 
+function mdSelecionarTipo(tipo){
+  document.getElementById('mdTipo').value = tipo;
+  document.getElementById('mdBtnGasto').classList.toggle('on', tipo==='gasto');
+  document.getElementById('mdBtnReceita').classList.toggle('on', tipo==='receita');
+}
+
 function abrirModalDespesa(){
+  document.getElementById('mdTitulo').textContent = 'Nova Despesa';
+  document.getElementById('mdSub').textContent = 'Registra uma conta ou gasto da clínica';
+  document.getElementById('mdId').value = '';
+  document.getElementById('mdTipoBox').style.display = 'none';
+  mdSelecionarTipo('gasto');
   document.getElementById('mdDescricao').value = '';
   document.getElementById('mdValor').value = '';
+  document.getElementById('mdCategoria').value = 'Contas fixas';
+  document.getElementById('mdBtnExcluir').style.display = 'none';
+  abrirModal('modalDespesa');
+}
+
+// Editar um lançamento já existente (receita ou despesa) direto da aba Financeiro
+function abrirModalLancamento(lanc){
+  document.getElementById('mdTitulo').textContent = 'Editar Lançamento';
+  document.getElementById('mdSub').textContent = 'Altere os dados ou exclua esse lançamento';
+  document.getElementById('mdId').value = lanc.id;
+  document.getElementById('mdTipoBox').style.display = 'block';
+  mdSelecionarTipo(lanc.tipo === 'receita' ? 'receita' : 'gasto');
+  document.getElementById('mdDescricao').value = dec(lanc.descricao, S.user.id);
+  document.getElementById('mdValor').value = lanc.valor;
+
+  const catSelect = document.getElementById('mdCategoria');
+  const cat = dec(lanc.cat, S.user.id) || '';
+  if (cat && ![...catSelect.options].some(o => o.value === cat)) {
+    const opt = document.createElement('option'); opt.value = cat; opt.textContent = cat;
+    catSelect.appendChild(opt);
+  }
+  catSelect.value = cat || 'Outros';
+
+  document.getElementById('mdBtnExcluir').style.display = 'block';
   abrirModal('modalDespesa');
 }
 
 async function salvarDespesaManual(){
   const desc = document.getElementById('mdDescricao').value.trim();
   const valor = Number(document.getElementById('mdValor').value);
+  const tipo = document.getElementById('mdTipo').value;
+  const id = document.getElementById('mdId').value;
   if (!desc || !valor) { toast('⚠️ Preenche descrição e valor'); return; }
   const headers = await authHeaders();
-  await fetch(`${SUPA_URL}/rest/v1/fp_lancs`, {
-    method:'POST', headers,
-    body: JSON.stringify({
-      user_id: S.user.id,
-      descricao: enc(desc, S.user.id),
-      valor, tipo:'gasto',
-      data: new Date().toISOString().slice(0,10),
-      cat: enc(document.getElementById('mdCategoria').value, S.user.id),
-      parcelas:1, parcela_atual:1
-    })
-  });
+  const body = {
+    descricao: enc(desc, S.user.id),
+    valor, tipo,
+    cat: enc(document.getElementById('mdCategoria').value, S.user.id)
+  };
+  let res;
+  if (id) {
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_lancs?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify(body)});
+  } else {
+    body.user_id = S.user.id;
+    body.data = new Date().toISOString().slice(0,10);
+    body.parcelas = 1; body.parcela_atual = 1;
+    res = await fetch(`${SUPA_URL}/rest/v1/fp_lancs`, {method:'POST', headers, body: JSON.stringify(body)});
+  }
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro: '+corpo); return; }
   fecharModal('modalDespesa');
-  toast('✅ Despesa lançada!');
+  toast(id ? '✅ Lançamento atualizado!' : '✅ Despesa lançada!');
   carregarFinanceiro();
+}
+
+// Exclui um lançamento. Se ele tiver vindo de um atendimento ("marcar pago")
+// ou de uma conta a vencer ("marcar paga"), desvincula e volta o status
+// original pra pendente, em vez de deixar a referência quebrada.
+async function excluirLancamento(id){
+  if (!id) return;
+  if (!confirm('Excluir esse lançamento? Se ele veio de um atendimento ou conta a vencer, o status deles volta pra pendente.')) return;
+  const headers = await authHeaders();
+  await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?lanc_id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify({status_pagamento:'pendente', lanc_id:null})});
+  await fetch(`${SUPA_URL}/rest/v1/fp_clinica_contas_fixas?lanc_id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify({status:'pendente', lanc_id:null})});
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_lancs?id=eq.${id}`, {method:'DELETE', headers});
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro: '+corpo); return; }
+  fecharModal('modalDespesa');
+  toast('🗑️ Lançamento excluído');
+  carregarFinanceiro();
+  carregarContasFixas();
 }
 
 // ── COMPROVANTE POR FOTO (IA) ──
