@@ -212,6 +212,7 @@ input,textarea,select{font-family:inherit;font-size:14px}
       <button class="nav-tab" data-page="agenda" onclick="irPagina('agenda')">📅 Agenda</button>
       <button class="nav-tab" data-page="equipe" onclick="irPagina('equipe')">👥 Equipe</button>
       <button class="nav-tab" data-page="validacao" onclick="irPagina('validacao')">🔔 Validação <span id="validacaoBadge" style="display:none;background:#C1594A;color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;margin-left:4px">0</span></button>
+      <button class="nav-tab" data-page="relatorios" onclick="irPagina('relatorios')">📄 Relatórios <span id="relatoriosBadge" style="display:none;background:#C1594A;color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;margin-left:4px">0</span></button>
       <button class="nav-tab" data-page="financeiro" onclick="irPagina('financeiro')">💰 Financeiro</button>
     </div>
 
@@ -304,6 +305,15 @@ input,textarea,select{font-family:inherit;font-size:14px}
       <div class="card-list" id="validacaoList"><div class="empty">Carregando...</div></div>
     </div>
 
+    <!-- RELATÓRIOS (pedidos via WhatsApp — evolução do paciente, gerado por IA, aguardando aprovação da clínica antes de enviar) -->
+    <div class="page" id="page-relatorios">
+      <div class="section-head">
+        <h2>Relatórios pedidos pelos responsáveis</h2>
+      </div>
+      <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:16px">Pedidos feitos pelo WhatsApp da clínica. A IA já rascunha um relatório — revise, edite se precisar, e só depois aprove pra ele ser enviado ao responsável.</div>
+      <div class="card-list" id="relatoriosList"><div class="empty">Carregando...</div></div>
+    </div>
+
     <!-- PACIENTES -->
     <div class="page" id="page-pacientes">
       <div class="section-head">
@@ -375,6 +385,8 @@ input,textarea,select{font-family:inherit;font-size:14px}
     <input type="hidden" id="mapId">
     <input type="hidden" id="mapPacienteId">
     <div id="mapPacienteNome" style="font-weight:700;font-size:16px;margin-bottom:14px;color:var(--sage-deep)"></div>
+    <button type="button" id="mapBtnRelatorio" onclick="gerarRelatorioEvolucao()" style="margin-bottom:14px;width:100%;background:var(--sage-pale);border:1.5px solid var(--sage);border-radius:10px;padding:10px;color:var(--sage-deep);font-size:12.5px;font-weight:700;cursor:pointer">📝 Ver relatório de evolução (IA)</button>
+    <div id="mapRelatorioBox" style="display:none;background:var(--cream);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px"></div>
     <div class="field"><label>Data e horário</label><input id="mapData" type="datetime-local"></div>
     <div class="field"><label>Indicadores / observações</label><textarea id="mapIndicadores" rows="3" placeholder="Como foi o atendimento..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream);resize:vertical;font-family:inherit"></textarea>
       <button type="button" id="mapBtnMic" onclick="toggleGravacaoVoz()" style="margin-top:8px;width:100%;background:var(--clay-pale);border:1.5px solid var(--clay);border-radius:10px;padding:10px;color:#A85C2E;font-size:12.5px;font-weight:700;cursor:pointer">🎤 Falar em vez de digitar</button>
@@ -739,7 +751,7 @@ async function authHeaders(){
 async function carregarTudo(){
   await carregarPacientes();
   await carregarEquipe();
-  await Promise.all([carregarFinanceiro(), carregarHorarios(), carregarValidacao(), carregarContasFixas()]);
+  await Promise.all([carregarFinanceiro(), carregarHorarios(), carregarValidacao(), carregarContasFixas(), carregarPedidosRelatorio()]);
 }
 
 // ── CONTAS A VENCER ───────────────────────────────────────────
@@ -1219,6 +1231,88 @@ async function confirmarRecusa(){
   toast('Atendimento recusado — o profissional vai ver o motivo');
   carregarValidacao();
 }
+
+// ── RELATÓRIOS PEDIDOS PELOS RESPONSÁVEIS (via WhatsApp) ──
+// Cada pedido chega da tabela fp_clinica_pedidos_relatorio já com um
+// rascunho gerado por IA (feito pelo webhook do WhatsApp, checando antes
+// que o número de quem pediu bate com o whatsapp_responsavel do paciente).
+// Aqui a Rafaela só revisa, edita se quiser, e aprova ou recusa — nada
+// sai pro responsável sem passar por aqui.
+async function carregarPedidosRelatorio(){
+  const el = document.getElementById('relatoriosList');
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pedidos_relatorio?user_id=eq.${S.user.id}&status=eq.pendente&order=criado_em.desc`, {headers});
+  const pendentes = res.ok ? await res.json() : [];
+
+  const badge = document.getElementById('relatoriosBadge');
+  if (pendentes.length) { badge.style.display = 'inline-block'; badge.textContent = pendentes.length; }
+  else { badge.style.display = 'none'; }
+
+  if (!pendentes.length) { el.innerHTML = '<div class="empty">Nenhum pedido de relatório aguardando aprovação 🎉</div>'; return; }
+
+  el.innerHTML = pendentes.map(p => {
+    const pac = _pacientesCache.find(x => x.id === p.paciente_id);
+    const dt = new Date(p.criado_em);
+    const dataFmt = dt.toLocaleDateString('pt-BR') + ' · ' + dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const rascunho = (p.relatorio_ia || '').replace(/</g,'&lt;');
+    return `<div class="pac-card" style="flex-direction:column;align-items:stretch;padding:14px;cursor:default">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:700;font-size:14px">${pac ? pac.nome_crianca : '—'}</span>
+        <span class="badge pacote">⏳ Pendente</span>
+      </div>
+      <div style="font-size:12px;color:var(--ink-soft);margin-bottom:2px">${dataFmt} · WhatsApp ${p.telefone_solicitante || '—'}</div>
+      ${p.texto_original ? `<div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px">Pediu: "${p.texto_original}"</div>` : ''}
+      <label style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;display:block">Rascunho da IA — edite se precisar</label>
+      <textarea id="pr-${p.id}" rows="6" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:12px;background:var(--cream);resize:vertical;font-size:12.5px;line-height:1.5;margin-bottom:12px">${rascunho}</textarea>
+      <div style="display:flex;gap:8px">
+        <button onclick="recusarPedidoRelatorio('${p.id}')" style="flex:1;background:#FBE3DE;border:none;border-radius:10px;padding:10px;color:#C1594A;font-weight:700;font-size:12.5px;cursor:pointer">❌ Não enviar</button>
+        <button onclick="aprovarPedidoRelatorio('${p.id}')" style="flex:1;background:linear-gradient(135deg,var(--sage),var(--sage-deep));border:none;border-radius:10px;padding:10px;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer">✅ Aprovar e enviar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function aprovarPedidoRelatorio(id){
+  const textoFinal = document.getElementById('pr-' + id).value.trim();
+  if (!textoFinal) { toast('⚠️ O texto do relatório não pode ficar vazio'); return; }
+  const headers = await authHeaders();
+
+  // Marca como aprovado e guarda o texto final revisado
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pedidos_relatorio?id=eq.${id}`, {
+    method:'PATCH', headers, body: JSON.stringify({status:'aprovado', relatorio_final: textoFinal, respondido_em: new Date().toISOString()})
+  });
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro: '+corpo); return; }
+
+  // Tenta disparar o envio pelo WhatsApp — só funciona depois que o número
+  // da clínica estiver conectado e a function enviar-relatorio-whatsapp publicada.
+  // Se ainda não estiver, o pedido fica "aprovado" esperando o envio manual/futuro.
+  try {
+    const resEnvio = await fetch(`${SUPA_URL}/functions/v1/enviar-relatorio-whatsapp`, {
+      method:'POST', headers: {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+      body: JSON.stringify({ pedido_id: id })
+    });
+    if (resEnvio.ok) {
+      await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pedidos_relatorio?id=eq.${id}`, {method:'PATCH', headers, body: JSON.stringify({status:'enviado'})});
+      toast('✅ Aprovado e enviado pelo WhatsApp!');
+    } else {
+      toast('✅ Aprovado — vai ser enviado assim que o WhatsApp da clínica estiver conectado.');
+    }
+  } catch (e) {
+    toast('✅ Aprovado — vai ser enviado assim que o WhatsApp da clínica estiver conectado.');
+  }
+  carregarPedidosRelatorio();
+}
+
+async function recusarPedidoRelatorio(id){
+  if (!confirm('Não enviar esse relatório pro responsável?')) return;
+  const headers = await authHeaders();
+  const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_pedidos_relatorio?id=eq.${id}`, {
+    method:'PATCH', headers, body: JSON.stringify({status:'recusado', respondido_em: new Date().toISOString()})
+  });
+  if (!res.ok) { let corpo=''; try{corpo=await res.text();}catch(_){} toast('❌ Erro: '+corpo); return; }
+  toast('Pedido marcado como não enviado');
+  carregarPedidosRelatorio();
+}
 // ══════════════════════════════════════════════════════════════
 // ── ACESSO DO PROFISSIONAL (restrito) ──
 // ══════════════════════════════════════════════════════════════
@@ -1342,6 +1436,58 @@ async function renderListaAtendimentosProf(){
 // ── Modal de atendimento do profissional (novo ou reenvio após recusa) ──
 let _profAtendimentoIdEdicao = null;
 
+// ── RELATÓRIO DE EVOLUÇÃO (IA) — só o profissional usa, na hora de
+// registrar/planejar o atendimento. Lê as próprias observações já
+// registradas pra esse paciente (só atendimentos validados) e pede
+// pra IA resumir a evolução e sugerir foco pro próximo atendimento.
+async function gerarRelatorioEvolucao(){
+  const pacienteId = document.getElementById('mapPacienteId').value;
+  const pacNome = document.getElementById('mapPacienteNome').textContent;
+  if (!pacienteId) { toast('⚠️ Não achei o paciente desse atendimento'); return; }
+
+  const box = document.getElementById('mapRelatorioBox');
+  const btn = document.getElementById('mapBtnRelatorio');
+  box.style.display = 'block';
+  box.innerHTML = '<div style="font-size:12px;color:var(--ink-soft)">Gerando relatório...</div>';
+  btn.disabled = true;
+
+  try {
+    const headers = await authHeaders();
+    const res = await fetch(`${SUPA_URL}/rest/v1/fp_clinica_atendimentos?paciente_id=eq.${pacienteId}&profissional_id=eq.${_souMembro.id}&status_validacao=eq.validado&indicadores=not.is.null&order=data_atendimento.asc&limit=30&select=data_atendimento,indicadores`, {headers});
+    const historico = res.ok ? await res.json() : [];
+
+    if (!historico.length) {
+      box.innerHTML = '<div style="font-size:12px;color:var(--ink-soft)">Ainda não há atendimentos validados com observações registradas pra esse paciente — o relatório vai ficar disponível depois dos primeiros atendimentos.</div>';
+      return;
+    }
+
+    const textoHistorico = historico.map(h => {
+      const d = new Date(h.data_atendimento).toLocaleDateString('pt-BR');
+      return d + ': ' + h.indicadores;
+    }).join('\n');
+
+    const prompt = 'Você é assistente de uma clínica de psicopedagogia infantil. Paciente: ' + pacNome + '. Abaixo o histórico de observações registradas pelo profissional em cada atendimento, do mais antigo pro mais recente:\n\n' + textoHistorico + '\n\nEscreva em português, em no máximo 180 palavras, com estes dois títulos:\n1) "Evolução observada" — resumo objetivo do progresso, dificuldades e avanços ao longo do tempo\n2) "Sugestão pro próximo atendimento" — 2 a 3 pontos práticos de foco pra próxima sessão, com base no que já foi trabalhado\nUse só o que está no histórico, sem inventar informação. Tom profissional e acolhedor.';
+
+    const resp = await fetch(`${SUPA_URL}/functions/v1/analisar-comprovante`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+      body: JSON.stringify({
+        model: 'claude-sonnet-5', max_tokens: 500,
+        messages: [{ role:'user', content:[{ type:'text', text: prompt }] }]
+      })
+    });
+    const data = await resp.json();
+    const texto = data.content?.[0]?.text || '';
+    box.innerHTML = texto
+      ? '<div style="font-size:12.5px;line-height:1.65;white-space:pre-wrap">' + texto + '</div>'
+      : '<div style="font-size:12px;color:var(--red)">❌ Não consegui gerar o relatório agora. Tenta de novo.</div>';
+  } catch (e) {
+    box.innerHTML = '<div style="font-size:12px;color:var(--red)">❌ Erro ao gerar relatório: ' + e.message + '</div>';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function abrirModalAtendimentoProf(horarioId, dataISO){
   const h = _profHorariosCache.find(x => x.id === horarioId);
   if (!h) return;
@@ -1360,6 +1506,8 @@ function abrirModalAtendimentoProf(horarioId, dataISO){
   document.getElementById('mapFotoBox').innerHTML = '📷 Toque pra escolher — Câmera ou Galeria';
   document.getElementById('mapRecusaAviso').style.display = 'none';
   document.getElementById('mapBtnSalvar').textContent = 'Enviar pra validação';
+  document.getElementById('mapRelatorioBox').style.display = 'none';
+  document.getElementById('mapRelatorioBox').innerHTML = '';
   resetarBotaoMic();
   abrirModal('modalAtendimentoProf');
 }
@@ -1391,6 +1539,8 @@ async function abrirAtendimentoProfExistente(atendimentoId){
   }
 
   document.getElementById('mapFotoBox').innerHTML = '📷 Toque pra escolher — Câmera ou Galeria';
+  document.getElementById('mapRelatorioBox').style.display = 'none';
+  document.getElementById('mapRelatorioBox').innerHTML = '';
   if (a.foto_path) {
     try {
       const { data } = await sb.storage.from('clinica-fotos').createSignedUrl(a.foto_path, 3600);
